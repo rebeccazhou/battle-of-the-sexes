@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Battle of the Sexes</title>
 <style>
-/* Minimal: black, white, blue (girls), green (boys). Helvetica. Four page sizes, four stage sizes. */
+/* Warm brown ground, white type, blue (girls), green (boys). Helvetica. Tinted, borderless tiles; white primary, outlined secondary. */
 :root{
-  --bg:#40392f; --fg:#fff; --girls:#6473ff; --boys:#d0ff64;
+  --bg:#40392f; --fg:#fff; --surface:rgba(255,255,255,.07); --well:rgba(0,0,0,.22); --girls:#6473ff; --boys:#d0ff64;
   --font:"Helvetica Neue",Helvetica,Arial,sans-serif;
   --s:14px; --m:17px; --l:28px; --xl:clamp(44px,9vw,84px);
   --ps:clamp(12px,1.3vw,20px); --pm:clamp(18px,2.4vw,38px); --pl:clamp(28px,4.4vw,72px); --pxl:clamp(48px,7.5vw,124px);
@@ -17,24 +17,24 @@
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--fg);font:400 var(--m)/1.4 var(--font)}
 h1,h2,h3{margin:0;font-weight:700;text-wrap:balance;line-height:1.1}
-h1{font-size:var(--l)} h2{font-size:var(--pm)} h3{font-size:var(--m)}
+h1{font-size:30px;line-height:1.13} h2{font-size:var(--pm)} h3{font-size:var(--m)}
 b{font-weight:700}
 button{font:inherit;color:inherit;cursor:pointer;border:1px solid var(--fg);border-radius:8px;padding:12px 16px;background:transparent}
-button.primary{background:var(--fg);color:var(--bg)}
-button:disabled{border-style:dashed;background:transparent;color:var(--fg);cursor:not-allowed}
+button.primary{background:var(--fg);color:#000;border-color:var(--fg);font-weight:700}
+button:disabled{opacity:.4;cursor:not-allowed}
 button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
-input[type=text],input[type=number],input[type=password]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--fg);border-radius:8px;padding:12px 14px;width:100%;min-width:0}
-input::placeholder{color:var(--fg);opacity:1;font-style:italic}
+input[type=text],input[type=number],input[type=password]{font:inherit;color:var(--fg);background:var(--well);border:0;border-radius:8px;padding:12px 14px;width:100%;min-width:0}
+input::placeholder{color:var(--fg);opacity:.55}
 a{color:inherit}
 .wrap{max-width:760px;margin:0 auto;padding:24px max(16px,env(safe-area-inset-right,0px)) 80px max(16px,env(safe-area-inset-left,0px))}
 .muted{font-size:var(--s)}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .row>.grow{flex:1;min-width:0}
-.card{border:1px solid var(--fg);border-radius:12px;padding:18px}
+.card{background:var(--surface);border-radius:8px;padding:18px}
 .stack{display:flex;flex-direction:column;gap:14px}
-.girls{--team:var(--girls)} .boys{--team:var(--boys)} .wild{--team:var(--fg)}
+.girls{--team:var(--girls);--teamfill:color-mix(in srgb,var(--girls) 30%,transparent)} .boys{--team:var(--boys);--teamfill:color-mix(in srgb,var(--boys) 13%,transparent)} .wild{--team:var(--fg);--teamfill:var(--surface)}
 .teamtxt{color:var(--team)}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 18px;border-radius:8px;z-index:50}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:#000;padding:10px 18px;border-radius:8px;z-index:50}
 
 /* home */
 .home{max-width:1300px;margin:0 auto;padding:44px max(16px,env(safe-area-inset-right,0px)) 80px max(16px,env(safe-area-inset-left,0px));display:grid;column-gap:80px;row-gap:24px;align-items:start;
@@ -59,14 +59,14 @@ summary{cursor:pointer;font-size:var(--s)}
 ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 
 /* builder */
-.teampick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-.teampick button{padding:18px 14px}
-.catrow{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border-color:var(--team)}
+.teampick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.teampick button{padding:18px 14px;border:0;background:var(--surface);min-height:64px}
+.catrow{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:0;background:var(--teamfill);min-height:72px;padding:14px 18px}
 .catrow .em{font-size:var(--l)}
 .count{font-size:var(--s);font-variant-numeric:tabular-nums;white-space:nowrap}
 .count.ok::after{content:" \2713"}
-.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
-.item{border:1px solid var(--fg);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.item{background:var(--surface);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
 .item img{width:100%;aspect-ratio:1;object-fit:cover;background:#fff}
 .item .cap{padding:8px 10px;font-size:var(--s);display:flex;justify-content:space-between;gap:6px;align-items:start}
 .item .cap span{min-width:0;overflow-wrap:anywhere}
@@ -75,22 +75,25 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 .cands button{padding:0;border-radius:8px;overflow:hidden;border:4px solid transparent;aspect-ratio:1}
 .cands button.sel{border-color:var(--fg)}
 .cands img{width:100%;height:100%;object-fit:cover;display:block;background:#fff}
+.chips button{border:0;background:var(--surface)}
+.card button:not(.primary):not(.x):not(.sel){border-color:rgba(255,255,255,.6)}
 
 /* host: board */
 .stage{height:100%;display:flex;flex-direction:column;padding:2vh 2.5vw;gap:2vh}
 .score{display:flex;align-items:center;justify-content:space-between;gap:2vw}
 .score .side{display:flex;align-items:center;gap:1.2vw;font-size:var(--pxl);font-weight:700;line-height:1;color:var(--team);font-variant-numeric:tabular-nums}
 .score .mid{text-align:center;flex:1;min-width:0}
-.score .mid .up{font-size:var(--pm)}
+.score .mid .up{font-size:var(--pm);font-weight:700}
 .score .mid .sub{font-size:var(--ps)}
-.board{flex:1;display:grid;grid-template-columns:repeat(6,1fr);grid-auto-rows:1fr;gap:1vw;min-height:0}
-.tile{border:1px dashed var(--fg);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1vw;gap:.6vh;min-height:0}
+.board{flex:1;display:grid;grid-template-columns:repeat(6,1fr);grid-auto-rows:1fr;gap:.6vw;min-height:0}
+.tile{border:0;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1vw;gap:.8vh;min-height:0;background:var(--teamfill);transition:opacity .2s}
+.tile.wild{background:color-mix(in srgb,var(--tint,#fff) 18%,transparent)}
 .tile .em{font-size:var(--pm);line-height:1}
-.tile .nm{font-size:calc(var(--pm)*.72);font-weight:700;line-height:1.05;overflow-wrap:anywhere}
-.tile .tag{font-size:var(--ps);color:var(--team)}
-.tile.open{border:3px solid var(--team)}
-.tile.owned{background:var(--owner);border:3px solid var(--owner);color:#000}
-.tile.owned .tag{color:#000}
+.tile .nm{font-size:calc(var(--pm)*.72);line-height:1.15;overflow-wrap:anywhere}
+.tile .tag{font-size:var(--ps);opacity:.8}
+.tile.locked{opacity:.3;cursor:default}
+.tile.owned{background:var(--owner);color:#000;opacity:1}
+.tile.owned .tag{opacity:1}
 .hostbar{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center;font-size:var(--s)}
 .hostbar button{padding:6px 12px}
 
@@ -98,24 +101,26 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 .play{height:100%;display:flex;flex-direction:column;padding:2vh 2.5vw;gap:1.5vh}
 .ptop{display:flex;align-items:center;justify-content:space-between;gap:2vw}
 .ptop .who{font-size:var(--ps);color:var(--team)}
+.ptop h2{font-weight:700}
 .clock{font-size:var(--pxl);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;min-width:2.6ch;text-align:right}
 .clock.low{animation:blink 1s steps(2,start) infinite}@keyframes blink{50%{opacity:0}}
-.pimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;border-radius:12px;overflow:hidden;border:3px solid var(--fg)}
-.pimg.no{border-style:dashed}
+.pimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;border-radius:8px;overflow:hidden;background:var(--well)}
 .pimg img{max-width:100%;max-height:100%;object-fit:contain;background:#fff}
-.pimg .ans{position:absolute;left:0;right:0;bottom:0;padding:1.5vh 2vw;font-size:var(--pl);font-weight:700;text-align:center;background:#000}
+.pimg .ans{position:absolute;left:0;right:0;bottom:0;padding:1.5vh 2vw;font-size:var(--pl);font-weight:700;text-align:center;background:var(--bg)}
+.pimg.ok .ans{background:var(--fg);color:#000}
+.pimg.no .ans::before{content:"Pass · ";font-weight:400}
 .pimg .msg{padding:4vw;text-align:center}
 .pimg .msg h2{font-size:var(--pl)}
 .pimg .msg p{font-size:var(--pm)}
 .pbot{display:flex;align-items:center;justify-content:space-between;gap:2vw;font-size:var(--s)}
-.pips{display:flex;gap:.6vw;flex-wrap:wrap}
-.pips{font-size:var(--pm);align-items:baseline}
+.pips{display:flex;gap:.6vw;flex-wrap:wrap;font-size:var(--pm);align-items:baseline}
 .tally{font-size:var(--pl);font-weight:700;font-variant-numeric:tabular-nums}
 .keys{display:flex;gap:10px}
-.keys .c{background:var(--fg);color:var(--bg)}
+.keys button{font-size:var(--m);padding:12px 20px}
+.keys .c{background:var(--fg);color:#000;font-weight:700}
 .duelclocks{display:flex;justify-content:space-between;align-items:center;gap:2vw}
-.dside{display:flex;align-items:center;gap:1.5vw;padding:1vh 2vw;border-radius:12px;border:3px solid transparent;color:var(--team)}
-.dside.act{border-color:var(--team)}
+.dside{display:flex;align-items:center;gap:1.5vw;padding:1vh 2vw;border-radius:8px;color:var(--team);opacity:.4}
+.dside.act{background:var(--teamfill);opacity:1}
 .dside .lbl{font-size:var(--pxl);line-height:1}
 @media (max-width:700px){.board{grid-template-columns:repeat(3,1fr)}}
 </style>
@@ -349,7 +354,7 @@ function renderBoard() {
   const tile = c => {
     const o = G.own[c.id], isSys = c.team === "wild", open = !o && (isSys ? r1 : !r1 && other(c.team) === G.up);
     const tag = o ? `${SYM[o.owner]} +${o.pts}` : isSys ? "Round 1" : `Round 2 · ${SYM[c.team]} list`;
-    return `<button class="tile ${c.team} ${o ? "owned" : open ? "open" : "locked"}" style="${o ? `--owner:var(--${o.owner})` : ""}" data-tile="${c.id}" title="Shift-click to correct the score"><span class="em">${esc(c.emoji || "")}</span><span class="nm">${esc(c.name)}</span><span class="tag">${esc(tag)}</span></button>`;
+    return `<button class="tile ${c.team} ${o ? "owned" : open ? "open" : "locked"}" style="${o ? `--owner:var(--${o.owner})` : isSys ? `--tint:${emojiTint(c.emoji)}` : ""}" data-tile="${c.id}" title="Shift-click to correct the score"><span class="em">${esc(c.emoji || "")}</span><span class="nm">${esc(c.name)}</span><span class="tag">${esc(tag)}</span></button>`;
   };
   const upTxt = done ? (gs === bs ? "Tied! Play the tiebreak duel" : `${TEAM[gs > bs ? "girls" : "boys"]} win, ${Math.max(gs, bs)} to ${Math.min(gs, bs)}!`) : any ? `Round ${r1 ? 1 : 2}: ${SYM[G.up]} is up` : "No categories yet";
   const sub = done || !any ? "" : r1 ? `${G.up === "girls" ? "She picks" : "He picks"} any everyday category left on the board` : `${TEAM[other(G.up)]}, pick which of your categories ${G.up === "girls" ? "she" : "he"} faces`;
