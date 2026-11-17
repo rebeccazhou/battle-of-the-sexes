@@ -33,7 +33,7 @@ a{color:inherit}
 .card{background:var(--surface);border-radius:8px;padding:18px}
 .stack{display:flex;flex-direction:column;gap:14px}
 .girls{--team:var(--girls);--teamfill:color-mix(in srgb,var(--girls) 30%,transparent)} .boys{--team:var(--boys);--teamfill:color-mix(in srgb,var(--boys) 13%,transparent)} .wild{--team:var(--fg);--teamfill:var(--surface)}
-.teamtxt{color:var(--team)}
+.teamtxt{color:inherit}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:#000;padding:10px 18px;border-radius:8px;z-index:50}
 
 /* home */
@@ -81,11 +81,12 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 /* host: board */
 .stage{height:100%;display:flex;flex-direction:column;padding:2vh 2.5vw;gap:2vh}
 .score{display:flex;align-items:center;justify-content:space-between;gap:2vw}
-.score .side{display:flex;align-items:center;gap:1.2vw;font-size:var(--pxl);font-weight:700;line-height:1;color:var(--team);font-variant-numeric:tabular-nums}
+.score .side{display:flex;align-items:center;gap:1.2vw;font-size:var(--pxl);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.score .side .dot{font-size:.55em}
 .score .mid{text-align:center;flex:1;min-width:0}
 .score .mid .up{font-size:var(--pm);font-weight:700}
 .score .mid .sub{font-size:var(--ps)}
-.board{flex:1;display:grid;grid-template-columns:repeat(6,1fr);grid-auto-rows:1fr;gap:.6vw;min-height:0}
+.board{flex:1;display:grid;grid-template-columns:repeat(6,1fr);gap:.6vw;min-height:0}
 .tile{border:0;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1vw;gap:.8vh;min-height:0;background:var(--teamfill);transition:opacity .2s}
 .tile.wild{background:color-mix(in srgb,var(--tint,#fff) 18%,transparent)}
 .tile .em{font-size:var(--pm);line-height:1}
@@ -100,7 +101,7 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 /* host: play */
 .play{height:100%;display:flex;flex-direction:column;padding:2vh 2.5vw;gap:1.5vh}
 .ptop{display:flex;align-items:center;justify-content:space-between;gap:2vw}
-.ptop .who{font-size:var(--ps);color:var(--team)}
+.ptop .who{font-size:var(--ps)}
 .ptop h2{font-weight:700}
 .clock{font-size:var(--pxl);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;min-width:2.6ch;text-align:right}
 .clock.low{animation:blink 1s steps(2,start) infinite}@keyframes blink{50%{opacity:0}}
@@ -119,10 +120,9 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 .keys button{font-size:var(--m);padding:12px 20px}
 .keys .c{background:var(--fg);color:#000;font-weight:700}
 .duelclocks{display:flex;justify-content:space-between;align-items:center;gap:2vw}
-.dside{display:flex;align-items:center;gap:1.5vw;padding:1vh 2vw;border-radius:8px;color:var(--team);opacity:.4}
+.dside{display:flex;align-items:center;gap:1.5vw;padding:1vh 2vw;border-radius:8px;opacity:.4}
 .dside.act{background:var(--teamfill);opacity:1}
-.dside .lbl{font-size:var(--pxl);line-height:1}
-@media (max-width:700px){.board{grid-template-columns:repeat(3,1fr)}}
+.dside .lbl{font-size:calc(var(--pxl)*.55);line-height:1}
 </style>
 </head>
 <body>
@@ -133,7 +133,7 @@ const SB = "https://ippikfbtknoddvumwgil.supabase.co";
 const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwcGlrZmJ0a25vZGR2dW13Z2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNjA4NjcsImV4cCI6MjA5MjkzNjg2N30.iFxRH9IwHSYeJbpeOS-3UKp2H89CGd-rhC1WX-UzAH0";
 const app = document.getElementById("app");
 const TEAM = { girls: "Girls", boys: "Boys", wild: "Wildcards" };
-const SYM = { girls: "♀\uFE0E", boys: "♂\uFE0E", wild: "★" };
+const SYM = { girls: "🟣", boys: "🟢", wild: "★" };
 const other = t => (t === "girls" ? "boys" : "girls");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -154,6 +154,7 @@ function route() {
   if (h === "build") renderBuild(); else if (h === "host" || h === "sandbox") hostInit(); else if (h === "practice") practiceInit(); else if (h === "judge") renderJudge(); else renderHome();
 }
 window.addEventListener("hashchange", route);
+let resizeT; window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (G && !T && typeof isHost === "function" && isHost()) renderBoard(); }, 150); });
 
 /* ---------- home ---------- */
 function renderHome() {
@@ -339,6 +340,13 @@ async function hostInit() {
 }
 const tilesOf = t => G.cats.filter(c => c.team === t);
 const count = t => Object.values(G.own).filter(o => o.owner === t).reduce((n, o) => n + o.pts, 0);
+// choose a columns x rows grid that fits n tiles with the fewest empty cells and roughly square-ish tiles
+function boardGrid(n) {
+  if (!n) return "";
+  const aspect = innerWidth / Math.max(1, innerHeight * 0.75); let best = null;
+  for (let c = 1; c <= n; c++) { const r = Math.ceil(n / c), score = (c * r - n) + 2 * Math.abs(Math.log((aspect * r / c) / 1.25)); if (!best || score < best.score) best = { c, r, score }; }
+  return `grid-template-columns:repeat(${best.c},1fr);grid-template-rows:repeat(${best.r},1fr)`;
+}
 function renderBoard() {
   if (!isHost()) return;
   T = null; setAnswer("");
@@ -359,10 +367,10 @@ function renderBoard() {
   const upTxt = done ? (gs === bs ? "Tied! Play the tiebreak duel" : `${TEAM[gs > bs ? "girls" : "boys"]} win, ${Math.max(gs, bs)} to ${Math.min(gs, bs)}!`) : any ? `Round ${r1 ? 1 : 2}: ${SYM[G.up]} is up` : "No categories yet";
   const sub = done || !any ? "" : r1 ? `${G.up === "girls" ? "She picks" : "He picks"} any everyday category left on the board` : `${TEAM[other(G.up)]}, pick which of your categories ${G.up === "girls" ? "she" : "he"} faces`;
   app.innerHTML = `<div class="stage">
-    <div class="score"><div class="side girls"><span aria-label="Girls">${SYM.girls}</span><span class="num">${gs}</span></div>
-      <div class="mid"><div class="up ${done ? "" : G.up}" style="${done ? "" : "color:var(--team)"}">${upTxt}</div><div class="sub">${sub}</div></div>
-      <div class="side boys"><span class="num">${bs}</span><span aria-label="Boys">${SYM.boys}</span></div></div>
-    <div class="board">${sys.map(tile).join("")}${team.map(tile).join("")}</div>
+    <div class="score"><div class="side girls"><span class="dot" aria-label="Girls">${SYM.girls}</span><span class="num">${gs}</span></div>
+      <div class="mid"><div class="up">${upTxt}</div><div class="sub">${sub}</div></div>
+      <div class="side boys"><span class="num">${bs}</span><span class="dot" aria-label="Boys">${SYM.boys}</span></div></div>
+    <div class="board" style="${boardGrid(sys.length + team.length)}">${sys.map(tile).join("")}${team.map(tile).join("")}</div>
     <div class="hostbar"><span>${isSandbox() ? "<b>Sandbox.</b> Test categories only, nothing here touches the real game · " : ""}${G.cfg.clock}s clock · pass costs ${G.cfg.pass}s · Judges: open ${esc(location.host)}/#judge on a phone to see the answers · Shift-click a tile to correct its score</span>
       <span class="row"><button id="bprac">Practice round</button><button id="btie">Tiebreak duel</button><button id="bset">Settings</button><button id="bans">Answer window</button><button id="bfs">Full screen</button><button id="bnew">New game</button><a href="#">Exit</a></span></div></div>`;
   app.querySelectorAll("[data-tile]").forEach(el => el.onclick = e => {
@@ -442,10 +450,10 @@ function show() {
   if (T.phase === "ready") {
     box.innerHTML = T.kind === "solo"
       ? `<div class="msg"><h2>Name as many as you can</h2><p>${T.secs} seconds. ${T.practice ? "Tap Correct when you get one, Pass when you're stuck" : "Every one is a point. Say “pass” to skip"} (a pass costs ${G.cfg.pass}s).<br>Press Space or tap here to start.</p></div>`
-      : `<div class="msg"><h2>Tiebreak duel</h2><p>One girl, one guy. Your clock only runs on your turn. Get it right to pass the turn.<br><b class="${T.active}" style="color:var(--team)">${TEAM[T.active]} go first.</b> Press Space or tap here to start.</p></div>`;
+      : `<div class="msg"><h2>Tiebreak duel</h2><p>One girl, one guy. Your clock only runs on your turn. Get it right to pass the turn.<br><b>${SYM[T.active]} ${TEAM[T.active]} go first.</b> Press Space or tap here to start.</p></div>`;
     setAnswer("Press Space to start");
   } else if (T.phase === "done") {
-    box.innerHTML = `<div class="msg ${T.winner}"><h2 style="color:var(--team)">${esc(T.headline)}</h2><p>${esc(T.detail)}<br>Press Space or tap here to continue.</p></div>`; setAnswer("");
+    box.innerHTML = `<div class="msg ${T.winner}"><h2>${T.winner && SYM[T.winner] ? SYM[T.winner] + " " : ""}${esc(T.headline)}</h2><p>${esc(T.detail)}<br>Press Space or tap here to continue.</p></div>`; setAnswer("");
   } else {
     box.innerHTML = `<img src="${esc(it.image_url)}" alt="">` + (T.phase === "flash" || T.phase === "pass" ? `<div class="ans">${esc(it.answer)}</div>` : ""); setAnswer(it.answer);
   }
@@ -481,9 +489,9 @@ function startDuel(cat) {
   const items = shuffle(cat.items); preload(items);
   T = { kind: "duel", cat, items, i: -1, time: { girls: G.cfg.duel, boys: G.cfg.duel }, active: Math.random() < .5 ? "girls" : "boys", phase: "ready", hold: 0 };
   app.innerHTML = `<div class="play wild">
-    <div class="duelclocks"><div class="dside girls" id="dgirls"><span class="lbl" aria-label="Girls">${SYM.girls}</span><span class="clock" id="cgirls" style="text-align:center">${fmt(T.time.girls)}</span></div>
+    <div class="duelclocks"><div class="dside girls" id="dgirls"><span class="lbl dot" aria-label="Girls">${SYM.girls}</span><span class="clock" id="cgirls" style="text-align:center">${fmt(T.time.girls)}</span></div>
       <div style="text-align:center;min-width:0"><div class="who">Tiebreak duel</div><h2>${esc(cat.emoji || "")} ${esc(cat.name)}</h2></div>
-      <div class="dside boys" id="dboys"><span class="lbl" aria-label="Boys">${SYM.boys}</span><span class="clock" id="cboys" style="text-align:center">${fmt(T.time.boys)}</span></div></div>
+      <div class="dside boys" id="dboys"><span class="lbl dot" aria-label="Boys">${SYM.boys}</span><span class="clock" id="cboys" style="text-align:center">${fmt(T.time.boys)}</span></div></div>
     <div class="pimg" id="pimg"></div>
     <div class="pbot"><div class="muted">Correct passes the turn. A pass costs ${G.cfg.pass}s and you stay up.</div><div class="keys"><button class="ghost" data-k="Escape">Back (Esc)</button><button class="p" data-k="p">Pass (P)</button><button class="c" data-k=" ">Correct (Space)</button></div></div></div>`;
   app.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { b.blur(); onKey({ key: b.dataset.k, preventDefault() {} }); });
