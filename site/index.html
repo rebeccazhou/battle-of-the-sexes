@@ -100,10 +100,12 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 
 /* host: play */
 .play{height:100%;display:flex;flex-direction:column;padding:2vh 2.5vw;gap:1.5vh}
-.ptop{display:flex;align-items:center;justify-content:space-between;gap:2vw}
-.ptop .who{font-size:var(--ps)}
+.ptop{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:2vw}
+.ptop h2{text-align:center}
+.ptop .who{font-size:var(--pl);line-height:1}
 .ptop h2{font-weight:700}
-.clock{font-size:var(--pxl);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;min-width:2.6ch;text-align:right}
+.clock{font-size:var(--pl);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;min-width:2.6ch;text-align:right}
+.dside .clock{font-size:var(--pxl)}
 .clock.low{animation:blink 1s steps(2,start) infinite}@keyframes blink{50%{opacity:0}}
 .pimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;border-radius:8px;overflow:hidden;background:var(--well)}
 .pimg img{max-width:100%;max-height:100%;object-fit:contain;background:#fff}
@@ -114,7 +116,7 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 .pimg .msg h2{font-size:var(--pl)}
 .pimg .msg p{font-size:var(--pm)}
 .pbot{display:flex;align-items:center;justify-content:space-between;gap:2vw;font-size:var(--s)}
-.pips{display:flex;gap:.6vw;flex-wrap:wrap;font-size:var(--pm);align-items:baseline}
+.pips{font-size:var(--pl);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
 .tally{font-size:var(--pl);font-weight:700;font-variant-numeric:tabular-nums}
 .keys{display:flex;gap:10px}
 .keys button{font-size:var(--m);padding:12px 20px}
@@ -437,9 +439,9 @@ function startTurn(cat, opt = {}) {
   T = { kind: "solo", cat, team, practice: !!opt.practice, items, i: -1, correct: 0, time: opt.practice ? 30 : G.cfg.clock, phase: "ready", hold: 0 };
   T.secs = T.time;
   app.innerHTML = `<div class="play ${T.team}">
-    <div class="ptop"><div><div class="who">${T.practice ? "Practice round, not scored" : `${SYM[T.team]} up · ${SYM[other(T.team)]} judge`}</div><h2>${esc(cat.emoji || "")} ${esc(cat.name)}</h2></div><div class="clock" id="clock">${fmt(T.time)}</div></div>
+    <div class="ptop"><div class="who">${T.practice ? "Practice" : `<span aria-label="${TEAM[T.team]} up">${SYM[T.team]}</span>`}</div><h2>${esc(cat.emoji || "")} ${esc(cat.name)}</h2><div class="clock" id="clock">${fmt(T.time)}</div></div>
     <div class="pimg" id="pimg"></div>
-    <div class="pbot"><div class="pips" id="pips"></div><div class="keys"><button class="ghost" data-k="Escape">Back (Esc)</button><button class="p" data-k="p">Pass (P)</button><button class="c" data-k=" ">Correct (Space)</button></div></div></div>`;
+    <div class="pbot"><div class="pips" id="pips"></div><div class="keys"><button class="p" data-k="p">Pass (P)</button><button class="c" data-k=" ">Correct (Space)</button></div></div></div>`;
   app.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { b.blur(); onKey({ key: b.dataset.k, preventDefault() {} }); });
   document.getElementById("pimg").onclick = () => { if (T && (T.phase === "ready" || T.phase === "done")) onKey({ key: " ", preventDefault() {} }); };
   show(); loop(tick);
@@ -449,15 +451,15 @@ function show() {
   const it = T.items[T.i]; box.className = "pimg" + (T.phase === "flash" ? " ok" : T.phase === "pass" ? " no" : "");
   if (T.phase === "ready") {
     box.innerHTML = T.kind === "solo"
-      ? `<div class="msg"><h2>Name as many as you can</h2><p>${T.secs} seconds. ${T.practice ? "Tap Correct when you get one, Pass when you're stuck" : "Every one is a point. Say “pass” to skip"} (a pass costs ${G.cfg.pass}s).<br>Press Space or tap here to start.</p></div>`
-      : `<div class="msg"><h2>Tiebreak duel</h2><p>One girl, one guy. Your clock only runs on your turn. Get it right to pass the turn.<br><b>${SYM[T.active]} ${TEAM[T.active]} go first.</b> Press Space or tap here to start.</p></div>`;
+      ? `<div class="msg"><h2>Name as many as you can</h2><p>${T.practice ? "Tap Correct when you get one, Pass when you're stuck" : "Every one is a point. Say “pass” to skip"} (a pass costs ${G.cfg.pass}s).<br>Tap here to start.</p></div>`
+      : `<div class="msg"><h2>Tiebreak duel</h2><p>One girl, one guy. Your clock only runs on your turn. Get it right to pass the turn.<br><b>${SYM[T.active]} ${TEAM[T.active]} go first.</b> Tap here to start.</p></div>`;
     setAnswer("Press Space to start");
   } else if (T.phase === "done") {
-    box.innerHTML = `<div class="msg ${T.winner}"><h2>${T.winner && SYM[T.winner] ? SYM[T.winner] + " " : ""}${esc(T.headline)}</h2><p>${esc(T.detail)}<br>Press Space or tap here to continue.</p></div>`; setAnswer("");
+    box.innerHTML = `<div class="msg ${T.winner}"><h2>${T.winner && SYM[T.winner] ? SYM[T.winner] + " " : ""}${esc(T.headline)}</h2><p>${esc(T.detail)}<br>Tap here to continue.</p></div>`; setAnswer("");
   } else {
     box.innerHTML = `<img src="${esc(it.image_url)}" alt="">` + (T.phase === "flash" || T.phase === "pass" ? `<div class="ans">${esc(it.answer)}</div>` : ""); setAnswer(it.answer);
   }
-  const pips = document.getElementById("pips"); if (pips && T.kind === "solo") pips.innerHTML = `<span class="tally">${T.correct}</span> named`;
+  const pips = document.getElementById("pips"); if (pips && T.kind === "solo") pips.innerHTML = `${T.correct} named`;
   if (T.kind === "duel") ["girls", "boys"].forEach(t => document.getElementById("d" + t)?.classList.toggle("act", T.active === t && T.phase !== "done"));
 }
 function advance() {           // move to the next usable picture
@@ -493,7 +495,7 @@ function startDuel(cat) {
       <div style="text-align:center;min-width:0"><div class="who">Tiebreak duel</div><h2>${esc(cat.emoji || "")} ${esc(cat.name)}</h2></div>
       <div class="dside boys" id="dboys"><span class="lbl dot" aria-label="Boys">${SYM.boys}</span><span class="clock" id="cboys" style="text-align:center">${fmt(T.time.boys)}</span></div></div>
     <div class="pimg" id="pimg"></div>
-    <div class="pbot"><div class="muted">Correct passes the turn. A pass costs ${G.cfg.pass}s and you stay up.</div><div class="keys"><button class="ghost" data-k="Escape">Back (Esc)</button><button class="p" data-k="p">Pass (P)</button><button class="c" data-k=" ">Correct (Space)</button></div></div></div>`;
+    <div class="pbot"><div class="muted">Correct passes the turn. A pass costs ${G.cfg.pass}s and you stay up.</div><div class="keys"><button class="p" data-k="p">Pass (P)</button><button class="c" data-k=" ">Correct (Space)</button></div></div></div>`;
   app.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { b.blur(); onKey({ key: b.dataset.k, preventDefault() {} }); });
   document.getElementById("pimg").onclick = () => { if (T && (T.phase === "ready" || T.phase === "done")) onKey({ key: " ", preventDefault() {} }); };
   show(); loop(tick);
