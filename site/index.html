@@ -61,8 +61,8 @@ summary{cursor:pointer;font-size:var(--s)}
 ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 
 /* builder */
-.teampick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
-.teampick button{padding:18px 14px;border:0;background:var(--surface);min-height:64px}
+.teampick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.teampick button{padding:12px;border:0;background:var(--teamfill,var(--surface));min-height:85px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
 .catrow{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:0;background:var(--teamfill);min-height:72px;padding:14px 18px}
 .catrow .em{font-size:var(--l)}
 .count{font-size:var(--s);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -237,7 +237,7 @@ async function renderLogin(picked) {
   if (!who) {
     app.innerHTML = `<div class="wrap stack"><a href="#">&larr; Home</a><h1>Who are you?</h1>
       <p class="muted" style="margin:0">Tap your name. You'll land on your own team's categories automatically.</p>
-      <div class="teampick">${roster.map(r => `<button data-name="${esc(r.name)}">${esc(r.name)}</button>`).join("") || `<p class="muted">The guest list is empty. Ask the host to add everyone's names.</p>`}</div>
+      <div class="teampick">${[...roster].sort((a, b) => (a.team === b.team ? a.name.localeCompare(b.name) : a.team === "girls" ? -1 : 1)).map(r => `<button class="${r.team}" data-name="${esc(r.name)}"><span>${SYM[r.team] || ""}</span><span>${esc(r.name)}</span></button>`).join("") || `<p class="muted">The guest list is empty. Ask the host to add everyone's names.</p>`}</div>
       ${PREP("Tap your name above. The first time, you'll be asked to create a password. After that you'll only see your own team's categories, so the other team's pictures stay a surprise.")}</div>`;
     app.querySelectorAll("[data-name]").forEach(b => b.onclick = () => renderLogin(b.dataset.name));
     return;
