@@ -325,20 +325,40 @@ function renderCat(cat) {
   };
   drawCands();
 }
-/* image finder: Wikipedia lead pictures first, then Wikimedia Commons search */
-// image finder: Wikipedia article pictures and Wikimedia Commons photos.
-// The category name is added to the Wikipedia search so "Mercury" in Space finds the planet, not the singer;
-// a plain search follows as a fallback, then Commons photos (searched as "answer category" first, then the answer alone).
+// image finder. All sources are free and need no key; they run at once and a slow one is dropped after 7s.
+// Always: Wikipedia article pictures, Openverse (Flickr and other open photo sites), Wikimedia Commons.
+// By category: iNaturalist (animals, plants, nature), TVMaze (TV shows, actors), TheMealDB / TheCocktailDB (food, drinks),
+// Portuguese Wikipedia (Brazil). The category name is added to the general searches so "Mercury" in Space finds the planet.
 async function findImages(q, cat) {
-  const out = [], hint = (cat || "").trim();
-  const get = async u => { try { const r = await fetch(u); return r.ok ? await r.json() : null; } catch { return null; } };
-  const wiki = term => get(`https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(term)}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=960&pilicense=any`);
-  const commons = (term, n) => get(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(term)}&gsrnamespace=6&gsrlimit=${n}&prop=imageinfo&iiprop=url|mime&iiurlwidth=960`);
-  const [wpCat, wp, cmCat, cm] = await Promise.all([hint ? wiki(`${q} ${hint}`) : null, wiki(q), hint ? commons(`${q} ${hint}`, 8) : null, commons(q, 18)]);
-  const byIndex = o => Object.values(o?.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
-  for (const res of [wpCat, wp]) for (const p of byIndex(res)) if (p.thumbnail?.source) out.push(p.thumbnail.source);
-  for (const res of [cmCat, cm]) for (const p of byIndex(res)) { const i = p.imageinfo?.[0]; if (i && /image\/(jpeg|png|webp)/.test(i.mime) && (i.thumburl || i.url)) out.push(i.thumburl || i.url); }
-  return [...new Set(out)].slice(0, 18);
+  const hint = (cat || "").trim(), lc = hint.toLowerCase(), enc = encodeURIComponent, qc = hint ? `${q} ${hint}` : q;
+  const get = async (u, ms = 6000) => { const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
+    try { const r = await fetch(u, { signal: c.signal }); return r.ok ? await r.json() : null; } catch { return null; } finally { clearTimeout(t); } };
+  const pages = o => Object.values(o?.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
+  const wiki = (term, lang = "en") => get(`https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc(term)}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=960&pilicense=any`)
+    .then(o => pages(o).map(p => p.thumbnail?.source));
+  const commons = (term, n) => get(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc(term)}&gsrnamespace=6&gsrlimit=${n}&prop=imageinfo&iiprop=url|mime&iiurlwidth=960`)
+    .then(o => pages(o).map(p => p.imageinfo?.[0]).filter(i => i && /image\/(jpeg|png|webp)/.test(i.mime)).map(i => i.thumburl || i.url));
+  // Openverse throttles anonymous use after a burst, so it gets one search and 3.5s at most
+  const openverse = term => get(`https://api.openverse.org/v1/images/?q=${enc(term)}&mature=false`, 3500)
+    .then(o => (o?.results || []).slice(0, 8).map(r => r.url));
+  const is = re => re.test(lc);
+  const special = [];
+  if (is(/animal|bird|wildlife|nature|plant|tree|flower|fish|insect|bug|reptile|mammal|mushroom|catskill|dog|cat\b|breed|pet|farm/))
+    special.push(get(`https://api.inaturalist.org/v1/taxa?q=${enc(q)}&per_page=4`).then(o => (o?.results || []).map(r => r.default_photo?.medium_url?.replace("/medium.", "/large."))));
+  if (is(/tv|show|sitcom|series|actor|actress|celebrit|famous|character|star|cast|host/)) {
+    special.push(get(`https://api.tvmaze.com/search/people?q=${enc(q)}`).then(o => (o || []).slice(0, 3).map(r => r.person?.image?.original)));
+    special.push(get(`https://api.tvmaze.com/search/shows?q=${enc(q)}`).then(o => (o || []).slice(0, 3).map(r => r.show?.image?.original)));
+  }
+  if (is(/food|dish|dessert|meal|cuisine|thanksgiving|brazil|bake|sweet|snack|dinner|breakfast/))
+    special.push(get(`https://www.themealdb.com/api/json/v1/1/search.php?s=${enc(q)}`).then(o => (o?.meals || []).slice(0, 3).map(m => m.strMealThumb)));
+  if (is(/drink|cocktail|bar|brazil|beverage/))
+    special.push(get(`https://www.thecocktaildb.com/api/json/v1/1/search.php?s=${enc(q)}`).then(o => (o?.drinks || []).slice(0, 3).map(d => d.strDrinkThumb)));
+  if (is(/brazil|brasil/)) special.push(wiki(q, "pt"));
+  const [wpCat, wp, ov, cmCat, cm, ...sp] = await Promise.all([
+    hint ? wiki(qc) : [], wiki(q), openverse(qc), hint ? commons(qc, 6) : [], commons(q, 12), ...special]);
+  // order: category-matched Wikipedia, specialist sources, plain Wikipedia, then the photo libraries
+  const out = [...wpCat, ...sp.flat(), ...wp, ...ov, ...cmCat, ...cm].filter(u => typeof u === "string" && /^https:\/\//.test(u));
+  return [...new Set(out)].slice(0, 24);
 }
 function shrink(file) {
   return new Promise((res, rej) => { const img = new Image(); img.onload = () => { const m = 900, s = Math.min(1, m / Math.max(img.width, img.height)); const c = document.createElement("canvas"); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(img.src); res(c.toDataURL("image/jpeg", 0.8)); }; img.onerror = rej; img.src = URL.createObjectURL(file); });
