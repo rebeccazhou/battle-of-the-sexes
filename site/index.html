@@ -51,7 +51,7 @@ a{color:inherit}
 .cta{display:inline-block;background:var(--fg);color:#000;text-decoration:none;border-radius:8px;padding:14px 22px;font-weight:700}
 .cta2{display:inline-block;border:1px solid var(--fg);border-radius:8px;padding:14px 22px;text-decoration:none}
 .catgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.catchip{min-height:85px;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.4;background:color-mix(in srgb,var(--tint) 10%,transparent)}
+.catchip{min-height:85px;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.4;background:color-mix(in srgb,var(--tint) 18%,transparent)}
 .catchip.girls{background:color-mix(in srgb,var(--girls) 30%,transparent)}
 .catchip.boys{background:color-mix(in srgb,var(--boys) 13%,transparent)}
 .big{font-size:var(--xl)}
@@ -167,15 +167,28 @@ function renderHome() {
   </div>`;
   loadHomeCats();
 }
-const CHIP_TINTS = ["#ffc964", "#64e8ff", "#ff6664", "#ff6464", "#c0c0c0", "#85ff64", "#ffff64", "#64d3ff", "#ffaa64", "#ff64fa", "#ffc364", "#d0ff64"];
+// tint a tile with the colour of its emoji: draw it small and average its pixels, weighting colourful ones more
+const tintCache = {};
+function emojiTint(emoji) {
+  if (!emoji) return "#ffffff";
+  if (tintCache[emoji]) return tintCache[emoji];
+  try {
+    const c = document.createElement("canvas"); c.width = c.height = 32;
+    const x = c.getContext("2d", { willReadFrequently: true }); x.textAlign = "center"; x.textBaseline = "middle"; x.font = "26px sans-serif"; x.fillText(emoji, 16, 18);
+    const d = x.getImageData(0, 0, 32, 32).data; let r = 0, g = 0, b = 0, w = 0;
+    for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 128) continue; const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]), wt = 0.15 + (mx ? (mx - mn) / mx : 0); r += d[i] * wt; g += d[i + 1] * wt; b += d[i + 2] * wt; w += wt; }
+    tintCache[emoji] = w ? `rgb(${Math.round(r / w)},${Math.round(g / w)},${Math.round(b / w)})` : "#ffffff";
+  } catch { tintCache[emoji] = "#ffffff"; }
+  return tintCache[emoji];
+}
 async function loadHomeCats() {
   let cats, items;
   try { cats = await api("floor_categories?select=id,team,name,emoji&order=created_at"); items = await api("floor_items?select=category_id"); } catch { return; }
   const box = document.getElementById("homecats"); if (!box) return;
   const n = {}; items.forEach(i => n[i.category_id] = (n[i.category_id] || 0) + 1);
-  const sys = cats.filter(c => c.team === "wild").map((c, i) => `<div class="catchip" style="--tint:${CHIP_TINTS[i % CHIP_TINTS.length]}"><span>${esc(c.emoji || "")}</span><span>${esc(c.name)}</span></div>`).join("");
+  const sys = cats.filter(c => c.team === "wild").map(c => `<div class="catchip" style="--tint:${emojiTint(c.emoji)}"><span>${esc(c.emoji || "")}</span><span>${esc(c.name)}</span></div>`).join("");
   const team = t => { const ready = cats.filter(c => c.team === t && (n[c.id] || 0) >= 15).slice(0, 6), dot = t === "girls" ? "🟣" : "🟢";
-    return Array.from({ length: 6 }, (_, k) => `<div class="catchip ${t}"><span>${dot}</span><span>${ready[k] ? esc(ready[k].name) : "&nbsp;"}</span></div>`).join(""); };
+    return Array.from({ length: 6 }, (_, k) => `<div class="catchip ${t}"><span>${dot}</span><span>${ready[k] ? esc(ready[k].name) : "[Category]"}</span></div>`).join(""); };
   box.innerHTML = `<h3>The categories</h3><p>Round 1: Game created everyday categories.</p><div class="catgrid">${sys}</div>
     <p>Round 2: Teams created bespoke categories.</p><div class="catgrid">${team("girls")}${team("boys")}</div>`;
 }
