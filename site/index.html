@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Battle of the Sexes</title>
+<style>
+/* Minimal: black, white, blue (girls), green (boys). Helvetica. Four page sizes, four stage sizes. */
+:root{
+  --bg:#000; --fg:#fff; --girls:#6473ff; --boys:#d0ff64;
+  --font:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  --s:14px; --m:17px; --l:28px; --xl:clamp(44px,9vw,84px);
+  --ps:clamp(12px,1.3vw,20px); --pm:clamp(18px,2.4vw,38px); --pl:clamp(28px,4.4vw,72px); --pxl:clamp(48px,7.5vw,124px);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:400 var(--m)/1.4 var(--font)}
+h1,h2,h3{margin:0;font-weight:700;text-wrap:balance;line-height:1.1}
+h1{font-size:var(--l)} h2{font-size:var(--pm)} h3{font-size:var(--m)}
+b{font-weight:700}
+button{font:inherit;color:inherit;cursor:pointer;border:1px solid var(--fg);border-radius:8px;padding:12px 16px;background:transparent}
+button.primary{background:var(--fg);color:var(--bg)}
+button:disabled{border-style:dashed;background:transparent;color:var(--fg);cursor:not-allowed}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+input[type=text],input[type=number],input[type=password]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--fg);border-radius:8px;padding:12px 14px;width:100%;min-width:0}
+input::placeholder{color:var(--fg);opacity:1;font-style:italic}
+a{color:inherit}
+.wrap{max-width:760px;margin:0 auto;padding:24px max(16px,env(safe-area-inset-right,0px)) 80px max(16px,env(safe-area-inset-left,0px))}
+.muted{font-size:var(--s)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row>.grow{flex:1;min-width:0}
+.card{border:1px solid var(--fg);border-radius:12px;padding:18px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.girls{--team:var(--girls)} .boys{--team:var(--boys)} .wild{--team:var(--fg)}
+.teamtxt{color:var(--team)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 18px;border-radius:8px;z-index:50}
+
+/* home */
+.hero{padding:40px 0 12px}
+.hero h1{font-size:var(--xl);line-height:.95}
+.hero .ed{margin:10px 0 0;font-size:var(--l)}
+.hero .vs{margin:14px 0 0;font-size:var(--xl);line-height:1;display:flex;align-items:center;gap:.25em}
+.hero .vs small{font-size:var(--m)}
+.hero .g{color:var(--girls)} .hero .b{color:var(--boys)}
+.cta{display:inline-block;background:var(--fg);color:var(--bg);text-decoration:none;border-radius:8px;padding:14px 22px;font-weight:700}
+.cta2{display:inline-block;border:1px solid var(--fg);border-radius:8px;padding:14px 22px;text-decoration:none}
+.how{display:grid;gap:24px;margin-top:10px}.how p{margin:6px 0 0}.how>p{margin:0}.how ul{margin:6px 0 0;padding-left:20px}.how li{margin:8px 0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}.chips button{padding:6px 12px;font-size:var(--s);border-radius:999px}
+.big{font-size:var(--xl)}
+summary{cursor:pointer;font-size:var(--s)}
+.catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-top:8px}
+.catchip{border:1px solid var(--team);border-radius:8px;padding:10px 12px}
+.hostlink{position:absolute;top:24px;right:max(16px,env(safe-area-inset-right,0px));font-size:var(--s)}
+ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
+
+/* builder */
+.teampick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.teampick button{padding:18px 14px}
+.catrow{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border-color:var(--team)}
+.catrow .em{font-size:var(--l)}
+.count{font-size:var(--s);font-variant-numeric:tabular-nums;white-space:nowrap}
+.count.ok::after{content:" \2713"}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.item{border:1px solid var(--fg);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.item img{width:100%;aspect-ratio:1;object-fit:cover;background:#fff}
+.item .cap{padding:8px 10px;font-size:var(--s);display:flex;justify-content:space-between;gap:6px;align-items:start}
+.item .cap span{min-width:0;overflow-wrap:anywhere}
+.item .x{padding:0 6px;border:0}
+.cands{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.cands button{padding:0;border-radius:8px;overflow:hidden;border:4px solid transparent;aspect-ratio:1}
+.cands button.sel{border-color:var(--fg)}
+.cands img{width:100%;height:100%;object-fit:cover;display:block;background:#fff}
+
+/* host: board */
+.stage{height:100%;display:flex;flex-direction:column;padding:2vh 2.5vw;gap:2vh}
+.score{display:flex;align-items:center;justify-content:space-between;gap:2vw}
+.score .side{display:flex;align-items:center;gap:1.2vw;font-size:var(--pxl);font-weight:700;line-height:1;color:var(--team);font-variant-numeric:tabular-nums}
+.score .mid{text-align:center;flex:1;min-width:0}
+.score .mid .up{font-size:var(--pm)}
+.score .mid .sub{font-size:var(--ps)}
+.board{flex:1;display:grid;grid-template-columns:repeat(6,1fr);grid-auto-rows:1fr;gap:1vw;min-height:0}
+.tile{border:1px dashed var(--fg);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1vw;gap:.6vh;min-height:0}
+.tile .em{font-size:var(--pm);line-height:1}
+.tile .nm{font-size:calc(var(--pm)*.72);font-weight:700;line-height:1.05;overflow-wrap:anywhere}
+.tile .tag{font-size:var(--ps);color:var(--team)}
+.tile.open{border:3px solid var(--team)}
+.tile.owned{background:var(--owner);border:3px solid var(--owner);color:#000}
+.tile.owned .tag{color:#000}
+.hostbar{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center;font-size:var(--s)}
+.hostbar button{padding:6px 12px}
+
+/* host: play */
+.play{height:100%;display:flex;flex-direction:column;padding:2vh 2.5vw;gap:1.5vh}
+.ptop{display:flex;align-items:center;justify-content:space-between;gap:2vw}
+.ptop .who{font-size:var(--ps);color:var(--team)}
+.clock{font-size:var(--pxl);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;min-width:2.6ch;text-align:right}
+.clock.low{animation:blink 1s steps(2,start) infinite}@keyframes blink{50%{opacity:0}}
+.pimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;border-radius:12px;overflow:hidden;border:3px solid var(--fg)}
+.pimg.no{border-style:dashed}
+.pimg img{max-width:100%;max-height:100%;object-fit:contain;background:#fff}
+.pimg .ans{position:absolute;left:0;right:0;bottom:0;padding:1.5vh 2vw;font-size:var(--pl);font-weight:700;text-align:center;background:#000}
+.pimg .msg{padding:4vw;text-align:center}
+.pimg .msg h2{font-size:var(--pl)}
+.pimg .msg p{font-size:var(--pm)}
+.pbot{display:flex;align-items:center;justify-content:space-between;gap:2vw;font-size:var(--s)}
+.pips{display:flex;gap:.6vw;flex-wrap:wrap}
+.pips{font-size:var(--pm);align-items:baseline}
+.tally{font-size:var(--pl);font-weight:700;font-variant-numeric:tabular-nums}
+.keys{display:flex;gap:10px}
+.keys .c{background:var(--fg);color:var(--bg)}
+.duelclocks{display:flex;justify-content:space-between;align-items:center;gap:2vw}
+.dside{display:flex;align-items:center;gap:1.5vw;padding:1vh 2vw;border-radius:12px;border:3px solid transparent;color:var(--team)}
+.dside.act{border-color:var(--team)}
+.dside .lbl{font-size:var(--pxl);line-height:1}
+@media (max-width:700px){.board{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<div id="app" style="height:100%"></div>
+<script>
+"use strict";
+const SB = "https://ippikfbtknoddvumwgil.supabase.co";
+const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwcGlrZmJ0a25vZGR2dW13Z2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNjA4NjcsImV4cCI6MjA5MjkzNjg2N30.iFxRH9IwHSYeJbpeOS-3UKp2H89CGd-rhC1WX-UzAH0";
+const app = document.getElementById("app");
+const TEAM = { girls: "Girls", boys: "Boys", wild: "Wildcards" };
+const SYM = { girls: "♀\uFE0E", boys: "♂\uFE0E", wild: "★" };
+const other = t => (t === "girls" ? "boys" : "girls");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+
+async function api(path, { method = "GET", body } = {}) {
+  const r = await fetch(SB + "/rest/v1/" + path, { method, headers: { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json", Prefer: "return=representation" }, body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) throw new Error((await r.text()) || r.statusText);
+  const t = await r.text(); return t ? JSON.parse(t) : null;
+}
+function toast(msg) { document.querySelector(".toast")?.remove(); const d = document.createElement("div"); d.className = "toast"; d.textContent = msg; document.body.append(d); setTimeout(() => d.remove(), 2600); }
+
+/* ---------- router ---------- */
+let stopLoop = null;
+function route() {
+  if (stopLoop) { stopLoop(); stopLoop = null; }
+  const h = location.hash.replace("#", "");
+  if (h === "build") renderBuild(); else if (h === "host") hostInit(); else if (h === "practice") practiceInit(); else if (h === "judge") renderJudge(); else renderHome();
+}
+window.addEventListener("hashchange", route);
+
+/* ---------- home ---------- */
+function renderHome() {
+  app.innerHTML = `<div class="wrap stack" style="position:relative">
+    <a href="#host" class="hostlink">Host the game</a>
+    <div class="hero"><h1>Battle of<br>the Sexes</h1>
+      <p class="ed">Thanksgiving 2026 Edition</p>
+      <p class="vs" aria-label="Girls versus boys"><span class="g">♀&#xFE0E;</span><small>vs</small><span class="b">♂&#xFE0E;</span></p></div>
+    <div class="row"><a href="#build" class="cta">Build your team's categories</a><a href="#practice" class="cta2">Try a practice round</a></div>
+    <div class="how">
+      <p>This is a picture-naming game, battle of the sexes. A picture goes up on the projector and the player has to say what it is. Each team secretly builds categories it thinks the other team will struggle with.</p>
+      <div><h3>Game Prep</h3>
+        <p>Build your team's categories! Each team needs to create 6 categories before Thanksgiving. Everyone on the team can help, and you can do it from your phone whenever you have a few minutes.</p>
+        <ul>
+        <li>Tap “Build your team's categories” above and tap your name. The first time, you'll be asked to create a password. After that you'll only see your own team's categories, so the other team's pictures stay a surprise.</li>
+        <li>Create a category by giving it a name. If you're stuck, the page lists categories from the TV show The Floor that you can tap.</li>
+        <li>Add pictures to the category one at a time. Type the answer the player will have to say, tap “Find pictures”, and choose the best photo from the options. You can also upload a photo of your own. Choose pictures that don't have the answer written on them, such as a name on a jersey or a label on a product.</li>
+        <li>Try to get at least 15 pictures into each category. A player sees as many as they can get through in 60 seconds, so more is better.</li></ul></div>
+      <div><h3>Game Play</h3>
+        <ul>
+        <li>One player stands up at a time, and the teams take turns. A category is chosen, the clock starts at 60 seconds, and pictures appear on the projector one after another.</li>
+        <li>The player says out loud what each picture is. As soon as they get one right, the next picture appears. Every correct answer is worth one point for their team.
+          <ul>
+          <li>If the player doesn't know a picture, they say “pass”. The answer is shown for 3 seconds while the clock keeps running, and then the next picture appears. There is no limit on passes, but each one uses up time.</li>
+          <li>The other team acts as the judge and decides whether each answer counts. First names or last names alone are fine if it's clear who the player means.</li></ul></li>
+        <li>When the clock reaches zero the turn is over, and the points are added to the team's total on the scoreboard.</li>
+        <li>The team with the most points after both rounds wins. If the score is tied, one girl and one guy play a head-to-head tiebreak.</li>
+        <li>Everyone plays twice, once in each round.
+          <ul>
+          <li>Round 1 uses the categories the teams built. When it's your turn, the other team chooses which of their categories you have to face.</li>
+          <li>Round 2 uses everyday categories that are already loaded into the game. When it's your turn, you choose your own category from the ones still left on the board. Each category can only be played once.</li></ul></li></ul></div>
+      <div><h3>Want to see what it feels like?</h3>
+        <p>Tap “Try a practice round” above. You'll get 30 seconds of farm animals on your own phone. Nothing is scored and you can play it as many times as you like.</p></div>
+      <div id="homecats"></div>
+    </div></div>`;
+  loadHomeCats();
+}
+async function loadHomeCats() {
+  let cats, items;
+  try { cats = await api("floor_categories?select=id,team,name,emoji&order=created_at"); items = await api("floor_items?select=category_id"); } catch { return; }
+  const box = document.getElementById("homecats"); if (!box) return;
+  const n = {}; items.forEach(i => n[i.category_id] = (n[i.category_id] || 0) + 1);
+  const chip = c => `<div class="catchip ${c.team}">${esc(c.emoji || "")} ${esc(c.name)}</div>`;
+  const teamBlock = t => { const all = cats.filter(c => c.team === t), ready = all.filter(c => (n[c.id] || 0) >= 15);
+    return `<div class="${t}"><p><span class="teamtxt">${SYM[t]}</span> ${ready.length} of 6 ready${all.length > ready.length ? `, ${all.length - ready.length} in progress` : ""}</p>${ready.length ? `<div class="catgrid">${ready.map(chip).join("")}</div>` : ""}</div>`; };
+  const sys = cats.filter(c => c.team === "wild");
+  box.innerHTML = `<h3>The categories</h3>
+    <p>Round 1: built by the teams. A category appears here once it has 15 pictures.</p>
+    ${teamBlock("girls")}${teamBlock("boys")}
+    <p style="margin-top:16px">Round 2: everyday categories, already loaded.</p>
+    <div class="catgrid">${sys.map(chip).join("")}</div>`;
+}
+
+/* ---------- builder ---------- */
+const FLOOR_IDEAS = "A-Listers|Oscar Winners|Comedians|Child Stars|Reality TV Stars|Game Show Hosts|News Personalities|SNL Alumni|Directors|Authors|CEOs|Billionaires|Athletes|Sports MVPs|Wrestlers|Rappers|Pop Stars|Rock Stars|Boy Bands|Girl Groups|Divas|Country Music|One Hit Wonders|Iconic Duos|Famous Hair|Fashion Icons|Fast Food|Snacks|Candy|Cheese|Pasta|Sushi|Breakfast|BBQ|Baked Goods|Pizza Toppings|Ice Cream Flavors|Beer|Tools|Car Parts|Cars|Classic Cars|Sports Equipment|Sneakers|Shoes|Clothing and Accessories|Toys|Games|School Supplies|Bathroom Items|Art Supplies|Electronics|Antiques|Bugs|Birds|Wild Animals|Ocean Animals|Puppies|Flowers|Trees|Plants|Gems|National Parks|Skylines|Islands|U.S. States|New York|Tourist Hotspots|Paintings|Constellations|Space|Weather|The Human Body|Transportation|Aviation|Halloween Costumes".split("|").map(n => ["", n]);
+const IDEAS = { girls: FLOOR_IDEAS, boys: FLOOR_IDEAS };
+const B = { me: store.get("floor_me", null), tab: "team", cats: [], items: [], open: null, cands: null, pick: null, busy: false, get team() { return this.me?.team; }, get name() { return this.me?.name; }, get scope() { return this.tab === "wild" ? "wild" : this.team; } };
+async function loadBuild() {
+  B.cats = await api(`floor_categories?team=eq.${B.scope}&order=created_at`);
+  B.items = B.cats.length ? await api(`floor_items?category_id=in.(${B.cats.map(c => c.id).join(",")})${B.tab === "wild" ? `&team=eq.${B.team}` : ""}&order=created_at`) : [];
+}
+async function renderLogin(picked) {
+  let roster; try { roster = await api("rpc/floor_roster", { method: "POST", body: {} }); } catch { app.innerHTML = `<div class="wrap"><p>Couldn't load the guest list. Check your connection and refresh.</p></div>`; return; }
+  if (location.hash !== "#build") return;
+  const who = roster.find(r => r.name === picked);
+  if (!who) {
+    app.innerHTML = `<div class="wrap stack"><a href="#">&larr; Home</a><h1>Who are you?</h1>
+      <p class="muted" style="margin:0">Tap your name. You'll land on your own team's categories automatically.</p>
+      <div class="teampick">${roster.map(r => `<button data-name="${esc(r.name)}">${esc(r.name)}</button>`).join("") || `<p class="muted">The guest list is empty. Ask the host to add everyone's names.</p>`}</div></div>`;
+    app.querySelectorAll("[data-name]").forEach(b => b.onclick = () => renderLogin(b.dataset.name));
+    return;
+  }
+  app.innerHTML = `<div class="wrap stack"><a href="#build" id="notme">&larr; Not ${esc(who.name)}?</a><h1>Hi ${esc(who.name)}</h1>
+    <form class="card stack" id="login"><label for="pw">${who.has_password ? "Enter your password" : "First time here: create a password (4+ characters)"}</label>
+      <input type="password" id="pw" minlength="4" required autocomplete="${who.has_password ? "current-password" : "new-password"}">
+      <p class="muted" style="margin:0">${who.has_password ? "Forgot it? Ask the host to reset it." : "Only for this game. Please don't reuse a password from anything important."}</p>
+      <p id="err" style="margin:0" hidden></p><button class="primary">${who.has_password ? "Sign in" : "Create password and continue"}</button></form></div>`;
+  document.getElementById("notme").onclick = e => { e.preventDefault(); renderLogin(); };
+  document.getElementById("pw").focus();
+  document.getElementById("login").onsubmit = async e => {
+    e.preventDefault(); const err = document.getElementById("err"); err.hidden = true;
+    try { const team = await api("rpc/floor_sign_in", { method: "POST", body: { p_name: who.name, p_password: document.getElementById("pw").value } }); B.me = { name: who.name, team }; store.set("floor_me", B.me); B.tab = "team"; B.open = null; renderBuild(); }
+    catch (ex) { let m = "Couldn't sign in. Try again."; try { m = JSON.parse(ex.message).message || m; } catch {} err.textContent = m; err.hidden = false; }
+  };
+}
+async function renderBuild(reload = true) {
+  if (!B.me) return renderLogin();
+  if (reload) { try { await loadBuild(); } catch (e) { app.innerHTML = `<div class="wrap"><p>Couldn't load categories. Check your connection and refresh.</p><p class="muted">${esc(e.message)}</p></div>`; return; } }
+  if (location.hash !== "#build") return;
+  const cat = B.cats.find(c => c.id === B.open);
+  if (cat) return renderCat(cat);
+  const wild = false, foe = TEAM[other(B.team)].toLowerCase();
+  const ideas = (IDEAS[B.team] || []).filter(([, n]) => !B.cats.some(c => c.name.toLowerCase() === n.toLowerCase()));
+  const tabBtn = (k, label) => `<button data-tab="${k}" class="${B.tab === k ? "primary" : "ghost"}" style="flex:1">${label}</button>`;
+  app.innerHTML = `<div class="wrap stack ${B.scope}">
+    <div class="row"><span class="grow ${B.team}">Hi ${esc(B.name)} · <b class="teamtxt">Team ${SYM[B.team]}</b></span><button class="ghost" id="sw">Sign out</button></div>
+    <div><h1><span class="teamtxt">${wild ? "Wildcard" : TEAM[B.team]}</span> categories</h1>
+    <p class="muted" style="margin:6px 0 0">${wild ? `Wildcards are head-to-head duels, so each team adds half the pictures. Add about 10 to each. You only see your own team's half.` : `Build 6 categories the ${foe} won't be able to name. Aim for 15+ pictures in each. Anyone on your team can add.`}</p></div>
+    ${wild ? "" : `<div class="count ${B.cats.length >= 6 ? "ok" : ""}">${B.cats.length} of 6 categories</div>`}
+    <div class="stack" style="gap:10px">${B.cats.map(c => { const n = B.items.filter(i => i.category_id === c.id).length, want = wild ? 10 : 15; return `<button class="catrow" data-open="${c.id}"><span class="em">${esc(c.emoji || "")}</span><span class="grow" style="flex:1;min-width:0"><b>${esc(c.name)}</b></span><span class="count ${n >= want ? "ok" : ""}">${n}${wild ? " from your team" : " pictures"}</span></button>`; }).join("") || `<p class="muted">${wild ? "No wildcard categories yet." : "No categories yet. Add the first one below."}</p>`}</div>
+    ${wild ? "" : `<form class="card stack" id="newcat"><h3>New category</h3>
+      ${ideas.length ? `<details><summary>Need ideas? See categories from The Floor</summary><div class="chips" style="margin-top:10px">${ideas.map(([e, n]) => `<button type="button" data-idea="${esc(e)}|${esc(n)}">${esc(n)}</button>`).join("")}</div></details>` : ""}
+      <div class="row"><input type="text" id="cemoji" maxlength="4" placeholder="🏈" style="width:72px;text-align:center" aria-label="Emoji"><div class="grow"><input type="text" id="cname" maxlength="60" placeholder="Category name" aria-label="Category name" required></div></div>
+      <button class="primary">Add category</button></form>`}</div>`;
+  document.getElementById("sw").onclick = () => { B.me = null; store.set("floor_me", null); renderBuild(); };
+  app.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { B.tab = b.dataset.tab; B.open = null; renderBuild(); });
+  app.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { B.open = b.dataset.open; B.cands = null; B.pick = null; renderBuild(false); });
+  app.querySelectorAll("[data-idea]").forEach(b => b.onclick = () => { const [e, n] = b.dataset.idea.split("|"); if (e) document.getElementById("cemoji").value = e; document.getElementById("cname").value = n; document.getElementById("cname").focus(); });
+  const nc = document.getElementById("newcat");
+  if (nc) nc.onsubmit = async e => {
+    e.preventDefault(); const name = document.getElementById("cname").value.trim(); if (!name) return;
+    try { const [c] = await api("floor_categories", { method: "POST", body: { team: B.team, name, emoji: document.getElementById("cemoji").value.trim() || null } }); B.open = c.id; B.cands = null; renderBuild(); } catch (err) { toast("Couldn't add the category. Try again."); }
+  };
+}
+function renderCat(cat) {
+  const items = B.items.filter(i => i.category_id === cat.id);
+  app.innerHTML = `<div class="wrap stack ${B.scope}">
+    <div class="row"><a href="#build" class="grow" id="back">&larr; All categories</a>${B.tab === "wild" ? "" : `<button class="danger" id="delcat">Delete category</button>`}</div>
+    <div><h1>${esc(cat.emoji || "")} ${esc(cat.name)}</h1><div class="count ${items.length >= (B.tab === "wild" ? 10 : 15) ? "ok" : ""}">${B.tab === "wild" ? `${items.length} from your team (aim for 10). The other team adds the other half.` : `${items.length} pictures${items.length < 15 ? " (aim for 15+)" : ""}`}</div></div>
+    <form class="card stack" id="add"><h3>Add a picture</h3>
+      <div><label for="ans" class="muted">Answer (what the player has to say)</label><input type="text" id="ans" maxlength="80" placeholder="e.g. Patrick Mahomes" required autocomplete="off"></div>
+      <div class="row"><div class="grow"><input type="text" id="q" placeholder="Search words (optional, defaults to the answer)" aria-label="Search words" autocomplete="off"></div><button type="button" class="primary" id="find">Find pictures</button></div>
+      <div id="cands"></div>
+      <div class="row"><label class="muted" style="cursor:pointer"><u>Upload your own photo</u><input type="file" id="file" accept="image/*" hidden></label><span class="muted">or</span><div class="grow"><input type="text" id="url" placeholder="Paste an image link" aria-label="Image link" autocomplete="off"></div></div>
+      <button class="primary" id="save" disabled>Pick a picture first</button></form>
+    <div class="items">${items.map(i => `<div class="item"><img src="${esc(i.image_url)}" alt="" loading="lazy"><div class="cap"><span>${esc(i.answer)}</span><button class="x" data-del="${i.id}" aria-label="Remove ${esc(i.answer)}">✕</button></div></div>`).join("")}</div></div>`;
+  const $ = id => document.getElementById(id);
+  $("back").onclick = e => { e.preventDefault(); B.open = null; renderBuild(); };
+  if ($("delcat")) $("delcat").onclick = async () => { if (!confirm(`Delete "${cat.name}" and its ${items.length} pictures?`)) return; await api(`floor_categories?id=eq.${cat.id}`, { method: "DELETE" }); B.open = null; renderBuild(); };
+  app.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await api(`floor_items?id=eq.${b.dataset.del}`, { method: "DELETE" }); renderBuild(); });
+  const setPick = url => { B.pick = url; $("save").disabled = !url; $("save").textContent = url ? "Add to category" : "Pick a picture first"; };
+  setPick(null);
+  const drawCands = () => {
+    const box = $("cands");
+    if (B.cands === "loading") { box.innerHTML = `<p class="muted">Searching…</p>`; return; }
+    if (!B.cands) { box.innerHTML = ""; return; }
+    if (!B.cands.length) { box.innerHTML = `<p class="muted">No pictures found. Try different search words, upload a photo, or paste a link.</p>`; return; }
+    box.innerHTML = `<p class="muted" style="margin:0 0 8px">Tap the best one. Avoid pictures with the name written on them.</p><div class="cands">${B.cands.map((u, i) => `<button type="button" data-c="${i}" class="${B.pick === u ? "sel" : ""}"><img src="${esc(u)}" alt="Option ${i + 1}" loading="lazy"></button>`).join("")}</div>`;
+    box.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { setPick(B.cands[+b.dataset.c]); $("url").value = ""; drawCands(); });
+  };
+  const find = async () => { const q = ($("q").value.trim() || $("ans").value.trim()); if (!q) { $("ans").focus(); return; } B.cands = "loading"; setPick(null); drawCands(); B.cands = await findImages(q); drawCands(); };
+  $("find").onclick = find;
+  $("ans").onkeydown = $("q").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); find(); } };
+  $("url").oninput = () => { const u = $("url").value.trim(); setPick(/^https?:\/\/\S+$/.test(u) ? u : null); drawCands(); };
+  $("file").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const u = await shrink(f); B.cands = [u]; setPick(u); drawCands(); } catch { toast("Couldn't read that photo."); } };
+  $("add").onsubmit = async e => {
+    e.preventDefault(); const answer = $("ans").value.trim(); if (!answer || !B.pick || B.busy) return; B.busy = true;
+    try { await api("floor_items", { method: "POST", body: { category_id: cat.id, answer, image_url: B.pick, added_by: B.name || null, team: B.team } }); B.cands = null; B.pick = null; toast(`Added ${answer}`); await renderBuild(); document.getElementById("ans")?.focus(); }
+    catch { toast("Couldn't save. Try again."); } finally { B.busy = false; }
+  };
+  drawCands();
+}
+/* image finder: Wikipedia lead pictures first, then Wikimedia Commons search */
+async function findImages(q) {
+  const enc = encodeURIComponent(q), out = [];
+  const get = async u => { try { const r = await fetch(u); return r.ok ? await r.json() : null; } catch { return null; } };
+  const [wp, cm] = await Promise.all([
+    get(`https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=960&pilicense=any`),
+    get(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc}&gsrnamespace=6&gsrlimit=18&prop=imageinfo&iiprop=url|mime&iiurlwidth=960`)
+  ]);
+  const byIndex = o => Object.values(o?.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
+  for (const p of byIndex(wp)) if (p.thumbnail?.source) out.push(p.thumbnail.source);
+  for (const p of byIndex(cm)) { const i = p.imageinfo?.[0]; if (i && /image\/(jpeg|png|webp)/.test(i.mime) && (i.thumburl || i.url)) out.push(i.thumburl || i.url); }
+  return [...new Set(out)].slice(0, 18);
+}
+function shrink(file) {
+  return new Promise((res, rej) => { const img = new Image(); img.onload = () => { const m = 900, s = Math.min(1, m / Math.max(img.width, img.height)); const c = document.createElement("canvas"); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(img.src); res(c.toDataURL("image/jpeg", 0.8)); }; img.onerror = rej; img.src = URL.createObjectURL(file); });
+}
+
+/* ---------- host / game ---------- */
+const DEF = { clock: 60, pass: 3, duel: 30 };
+let G = null;      // { cats, cfg, own:{catId:{owner,score}}, up }
+let T = null;      // active solo turn or duel
+let answerWin = null;
+function saveG() { store.set("floor_game", { cfg: G.cfg, own: G.own, up: G.up }); }
+async function hostInit() {
+  app.innerHTML = `<div class="wrap"><p>Loading categories…</p></div>`;
+  let cats, items;
+  try { cats = await api("floor_categories?order=created_at"); items = await api("floor_items?order=created_at"); }
+  catch (e) { app.innerHTML = `<div class="wrap"><p>Couldn't load the game. Check the internet connection and refresh.</p></div>`; return; }
+  cats.forEach(c => c.items = items.filter(i => i.category_id === c.id));
+  const s = store.get("floor_game", {}), demo = cats.find(c => c.team === "demo");
+  cats = cats.filter(c => c.team !== "demo");
+  G = { cats, demo, cfg: Object.assign({}, DEF, s.cfg), own: s.own || {}, up: s.up || (Math.random() < .5 ? "girls" : "boys") };
+  for (const id of Object.keys(G.own)) if ((id !== "tiebreak" && !cats.some(c => c.id === id)) || typeof G.own[id].pts !== "number") delete G.own[id];
+  T = null; renderBoard();
+}
+const tilesOf = t => G.cats.filter(c => c.team === t);
+const count = t => Object.values(G.own).filter(o => o.owner === t).reduce((n, o) => n + o.pts, 0);
+function renderBoard() {
+  if (location.hash !== "#host") return;
+  T = null; setAnswer("");
+  const g = tilesOf("girls"), b = tilesOf("boys"), sys = tilesOf("wild");
+  // interleave so the top of the board is a mix of both teams' tiles
+  const team = []; for (let i = 0; i < Math.max(g.length, b.length); i++) { const pair = i % 2 ? [b[i], g[i]] : [g[i], b[i]]; pair.forEach(c => c && team.push(c)); }
+  const left = t => tilesOf(other(t)).filter(c => !G.own[c.id]).length;   // round 1 tiles team t still has to face
+  const r1 = left("girls") + left("boys") > 0;
+  if (r1 && !left(G.up)) G.up = other(G.up);
+  const sysLeft = sys.filter(c => !G.own[c.id]).length, any = team.length + sys.length > 0;
+  const done = any && !r1 && !sysLeft;
+  const gs = count("girls"), bs = count("boys");
+  const tile = c => {
+    const o = G.own[c.id], isSys = c.team === "wild", open = !o && (isSys ? !r1 : other(c.team) === G.up);
+    const tag = o ? `${SYM[o.owner]} +${o.pts}` : isSys ? "Round 2" : `${SYM[c.team]} list`;
+    return `<button class="tile ${c.team} ${o ? "owned" : open ? "open" : "locked"}" style="${o ? `--owner:var(--${o.owner})` : ""}" data-tile="${c.id}" title="Shift-click to correct the score"><span class="em">${esc(c.emoji || "")}</span><span class="nm">${esc(c.name)}</span><span class="tag">${esc(tag)}</span></button>`;
+  };
+  const upTxt = done ? (gs === bs ? "Tied! Play the tiebreak duel" : `${TEAM[gs > bs ? "girls" : "boys"]} win, ${Math.max(gs, bs)} to ${Math.min(gs, bs)}!`) : any ? `Round ${r1 ? 1 : 2}: ${SYM[G.up]} is up` : "No categories yet";
+  const sub = done || !any ? "" : r1 ? `${TEAM[other(G.up)]}, pick which of your categories ${G.up === "girls" ? "she" : "he"} faces` : `${G.up === "girls" ? "She picks" : "He picks"} any category left on the board`;
+  app.innerHTML = `<div class="stage">
+    <div class="score"><div class="side girls"><span aria-label="Girls">${SYM.girls}</span><span class="num">${gs}</span></div>
+      <div class="mid"><div class="up ${done ? "" : G.up}" style="${done ? "" : "color:var(--team)"}">${upTxt}</div><div class="sub">${sub}</div></div>
+      <div class="side boys"><span class="num">${bs}</span><span aria-label="Boys">${SYM.boys}</span></div></div>
+    <div class="board">${team.map(tile).join("")}${sys.map(tile).join("")}</div>
+    <div class="hostbar"><span>${G.cfg.clock}s clock · pass costs ${G.cfg.pass}s · Judges: open ${esc(location.host)}/#judge on a phone to see the answers · Shift-click a tile to correct its score</span>
+      <span class="row"><button id="bprac">Practice round</button><button id="btie">Tiebreak duel</button><button id="bset">Settings</button><button id="bans">Answer window</button><button id="bfs">Full screen</button><button id="bnew">New game</button><a href="#">Exit</a></span></div></div>`;
+  app.querySelectorAll("[data-tile]").forEach(el => el.onclick = e => {
+    const c = G.cats.find(x => x.id === el.dataset.tile), o = G.own[c.id];
+    if (e.shiftKey) {
+      const v = prompt(`Points scored on "${c.name}" (leave blank to mark it unplayed)`, o ? o.pts : ""); if (v === null) return; const n = parseInt(v, 10);
+      if (n >= 0) { const owner = o ? o.owner : c.team === "wild" ? G.up : other(c.team); if (!o) G.up = other(owner); G.own[c.id] = { owner, pts: n }; } else delete G.own[c.id];
+      saveG(); return renderBoard(); }
+    if (o || el.classList.contains("locked")) return;
+    if (!c.items.length) return toast("That category has no pictures yet.");
+    startTurn(c);
+  });
+  document.getElementById("bprac").onclick = () => G.demo?.items.length ? startTurn(G.demo, { practice: true }) : toast("The practice category has no pictures yet.");
+  document.getElementById("btie").onclick = () => { const items = sys.flatMap(c => c.items); items.length ? startDuel({ id: "tiebreak", name: "Tiebreak", emoji: "", items }) : toast("No pictures available for a tiebreak."); };
+  document.getElementById("bfs").onclick = () => document.documentElement.requestFullscreen?.().catch(() => {});
+  document.getElementById("bnew").onclick = () => { if (confirm("Clear the board and start a new game?")) { G.own = {}; G.up = Math.random() < .5 ? "girls" : "boys"; saveG(); renderBoard(); } };
+  document.getElementById("bset").onclick = () => {
+    const ask = (label, k) => { const v = prompt(label, G.cfg[k]); const n = parseInt(v, 10); if (n > 0) G.cfg[k] = n; };
+    ask("Seconds on the clock for a turn", "clock"); ask("Seconds lost on a pass", "pass"); ask("Seconds each in the tiebreak duel", "duel"); saveG(); renderBoard();
+  };
+  document.getElementById("bans").onclick = () => {
+    answerWin = window.open("", "floorAnswer", "width=520,height=300");
+    if (!answerWin) return toast("Allow pop-ups to use the answer window.");
+    answerWin.document.title = "Answer (judges only)";
+    answerWin.document.body.innerHTML = `<div style="font:14px Helvetica,Arial,sans-serif;color:#fff;padding:16px 20px 0">Answer, judges only. Space = correct, P = pass</div><div id="a" style="font:700 44px Helvetica,Arial,sans-serif;padding:8px 20px"></div>`;
+    answerWin.document.body.style.cssText = "margin:0;background:#000;color:#fff";
+    answerWin.addEventListener("keydown", onKey);
+  };
+}
+async function practiceInit() {
+  app.innerHTML = `<div class="wrap"><p>Loading the practice round…</p></div>`;
+  try {
+    const [cat] = await api("floor_categories?team=eq.demo&limit=1"); if (!cat) throw 0;
+    cat.items = await api(`floor_items?category_id=eq.${cat.id}`); if (!cat.items.length) throw 0;
+    G = G || { cats: [], cfg: Object.assign({}, DEF), own: {}, up: "girls" };
+    if (location.hash === "#practice") startTurn(cat, { practice: true });
+  } catch { app.innerHTML = `<div class="wrap stack"><p>The practice round isn't ready yet.</p><a href="#">&larr; Home</a></div>`; }
+}
+function renderJudge() {
+  const note = "Judge view. Keep this screen hidden from the player.";
+  app.innerHTML = `<div class="wrap stack"><a href="#">&larr; Home</a><p class="muted" id="jl" style="margin:0">${note}</p><h1 class="big" id="ja">…</h1></div>`;
+  const pull = async () => { try { const [r] = await api("floor_live?id=eq.1"); if (location.hash !== "#judge") return; document.getElementById("ja").textContent = r.answer || "Waiting for the next picture"; document.getElementById("jl").textContent = (r.label && r.answer ? r.label + ". " : "") + note; } catch {} };
+  pull(); const id = setInterval(pull, 700); stopLoop = () => clearInterval(id);
+}
+function leave() { if (stopLoop) { stopLoop(); stopLoop = null; } if (location.hash === "#practice") { T = null; location.hash = ""; } else renderBoard(); }
+let liveLast = null;
+function setAnswer(t) {
+  try { if (answerWin && !answerWin.closed) answerWin.document.getElementById("a").textContent = t; } catch {}
+  if (location.hash === "#host" && t !== liveLast) { liveLast = t; api("floor_live?id=eq.1", { method: "PATCH", body: { answer: t, label: T?.cat?.name || "", updated_at: new Date().toISOString() } }).catch(() => {}); }
+}
+
+/* sounds */
+let actx = null;
+function beep(f, d = .12, type = "sine") { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(.15, actx.currentTime); g.gain.exponentialRampToValueAtTime(.001, actx.currentTime + d); o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + d); } catch {} }
+
+function preload(items) { items.forEach(it => { const im = new Image(); im.onerror = () => { it.bad = true; }; im.src = it.image_url; it._im = im; }); }
+function loop(fn) { let last = performance.now(); const id = setInterval(() => { const now = performance.now(), dt = (now - last) / 1000; last = now; fn(dt); }, 50); stopLoop = () => clearInterval(id); }
+const fmt = s => String(Math.max(0, Math.ceil(s)));
+
+/* ----- solo turn ----- */
+function startTurn(cat, opt = {}) {
+  const items = shuffle(cat.items); preload(items);
+  const team = opt.practice ? (location.hash === "#practice" ? (B.team || "wild") : G.up) : cat.team === "wild" ? G.up : other(cat.team);
+  T = { kind: "solo", cat, team, practice: !!opt.practice, items, i: -1, correct: 0, time: opt.practice ? 30 : G.cfg.clock, phase: "ready", hold: 0 };
+  T.secs = T.time;
+  app.innerHTML = `<div class="play ${T.team}">
+    <div class="ptop"><div><div class="who">${T.practice ? "Practice round, not scored" : `${SYM[T.team]} up · ${SYM[other(T.team)]} judge`}</div><h2>${esc(cat.emoji || "")} ${esc(cat.name)}</h2></div><div class="clock" id="clock">${fmt(T.time)}</div></div>
+    <div class="pimg" id="pimg"></div>
+    <div class="pbot"><div class="pips" id="pips"></div><div class="keys"><button class="ghost" data-k="Escape">Back (Esc)</button><button class="p" data-k="p">Pass (P)</button><button class="c" data-k=" ">Correct (Space)</button></div></div></div>`;
+  app.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { b.blur(); onKey({ key: b.dataset.k, preventDefault() {} }); });
+  document.getElementById("pimg").onclick = () => { if (T && (T.phase === "ready" || T.phase === "done")) onKey({ key: " ", preventDefault() {} }); };
+  show(); loop(tick);
+}
+function show() {
+  const box = document.getElementById("pimg"); if (!box || !T) return;
+  const it = T.items[T.i]; box.className = "pimg" + (T.phase === "flash" ? " ok" : T.phase === "pass" ? " no" : "");
+  if (T.phase === "ready") {
+    box.innerHTML = T.kind === "solo"
+      ? `<div class="msg"><h2>Name as many as you can</h2><p>${T.secs} seconds. ${T.practice ? "Tap Correct when you get one, Pass when you're stuck" : "Every one is a point. Say “pass” to skip"} (a pass costs ${G.cfg.pass}s).<br>Press Space or tap here to start.</p></div>`
+      : `<div class="msg"><h2>Tiebreak duel</h2><p>One girl, one guy. Your clock only runs on your turn. Get it right to pass the turn.<br><b class="${T.active}" style="color:var(--team)">${TEAM[T.active]} go first.</b> Press Space or tap here to start.</p></div>`;
+    setAnswer("Press Space to start");
+  } else if (T.phase === "done") {
+    box.innerHTML = `<div class="msg ${T.winner}"><h2 style="color:var(--team)">${esc(T.headline)}</h2><p>${esc(T.detail)}<br>Press Space or tap here to continue.</p></div>`; setAnswer("");
+  } else {
+    box.innerHTML = `<img src="${esc(it.image_url)}" alt="">` + (T.phase === "flash" || T.phase === "pass" ? `<div class="ans">${esc(it.answer)}</div>` : ""); setAnswer(it.answer);
+  }
+  const pips = document.getElementById("pips"); if (pips && T.kind === "solo") pips.innerHTML = `<span class="tally">${T.correct}</span> named`;
+  if (T.kind === "duel") ["girls", "boys"].forEach(t => document.getElementById("d" + t)?.classList.toggle("act", T.active === t && T.phase !== "done"));
+}
+function advance() {           // move to the next usable picture
+  do { T.i++; } while (T.i < T.items.length && T.items[T.i].bad);
+  if (T.i >= T.items.length) return T.kind === "solo" ? endSolo("Out of pictures") : endDuel(T.time.girls >= T.time.boys ? "girls" : "boys", "Out of pictures");
+  T.phase = "play"; show();
+}
+function tick(dt) {
+  if (!T) return;
+  if (T.phase === "flash") { T.hold -= dt; if (T.hold <= 0) { if (T.kind === "duel") T.active = other(T.active); advance(); } }
+  else if (T.phase === "play" || T.phase === "pass") {
+    if (T.kind === "solo") T.time -= dt; else T.time[T.active] -= dt;
+    if (T.phase === "pass") { T.hold -= dt; if (T.hold <= 0) advance(); }
+    const now = T.kind === "solo" ? T.time : T.time[T.active];
+    if (T && now <= 0 && T.phase !== "done") { beep(140, .6, "sawtooth"); T.kind === "solo" ? endSolo("Time's up") : endDuel(other(T.active), "Time's up"); }
+  }
+  if (!T) return;
+  if (T.kind === "solo") { const c = document.getElementById("clock"); if (c) { c.textContent = fmt(T.time); c.classList.toggle("low", T.time <= 10); } }
+  else ["girls", "boys"].forEach(t => { const c = document.getElementById("c" + t); if (c) { c.textContent = fmt(T.time[t]); c.classList.toggle("low", T.time[t] <= 10); } });
+}
+function endSolo(why) {
+  if (!T.practice) { G.own[T.cat.id] = { owner: T.team, pts: T.correct }; G.up = other(T.team); saveG(); }
+  T.phase = "done"; T.winner = T.team;
+  T.headline = T.practice ? `${T.correct} named` : `${T.correct} ${T.correct === 1 ? "point" : "points"} for the ${TEAM[T.team].toLowerCase()}`;
+  T.detail = T.practice ? `${why}. That was just practice, nothing is scored.` : `${why}.`; [660, 880, 1100].forEach((f, i) => setTimeout(() => beep(f, .18), i * 130)); show();
+}
+/* ----- wildcard duel ----- */
+function startDuel(cat) {
+  const items = shuffle(cat.items); preload(items);
+  T = { kind: "duel", cat, items, i: -1, time: { girls: G.cfg.duel, boys: G.cfg.duel }, active: Math.random() < .5 ? "girls" : "boys", phase: "ready", hold: 0 };
+  app.innerHTML = `<div class="play wild">
+    <div class="duelclocks"><div class="dside girls" id="dgirls"><span class="lbl" aria-label="Girls">${SYM.girls}</span><span class="clock" id="cgirls" style="text-align:center">${fmt(T.time.girls)}</span></div>
+      <div style="text-align:center;min-width:0"><div class="who">Tiebreak duel</div><h2>${esc(cat.emoji || "")} ${esc(cat.name)}</h2></div>
+      <div class="dside boys" id="dboys"><span class="lbl" aria-label="Boys">${SYM.boys}</span><span class="clock" id="cboys" style="text-align:center">${fmt(T.time.boys)}</span></div></div>
+    <div class="pimg" id="pimg"></div>
+    <div class="pbot"><div class="muted">Correct passes the turn. A pass costs ${G.cfg.pass}s and you stay up.</div><div class="keys"><button class="ghost" data-k="Escape">Back (Esc)</button><button class="p" data-k="p">Pass (P)</button><button class="c" data-k=" ">Correct (Space)</button></div></div></div>`;
+  app.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { b.blur(); onKey({ key: b.dataset.k, preventDefault() {} }); });
+  document.getElementById("pimg").onclick = () => { if (T && (T.phase === "ready" || T.phase === "done")) onKey({ key: " ", preventDefault() {} }); };
+  show(); loop(tick);
+}
+function endDuel(winner, why) {
+  G.own[T.cat.id] = { owner: winner, pts: 1 }; saveG();
+  T.phase = "done"; T.winner = winner; T.headline = `${TEAM[winner]} win the tiebreak, +1`; T.detail = `${why} for the ${TEAM[other(winner)].toLowerCase()}.`;
+  [660, 880, 1100].forEach((f, i) => setTimeout(() => beep(f, .18), i * 130)); show();
+}
+/* ----- keys ----- */
+function onKey(e) {
+  if (!T || (location.hash !== "#host" && location.hash !== "#practice")) return;
+  const k = e.key.toLowerCase();
+  if (k === "escape") { if (T.practice || T.phase === "done" || T.phase === "ready" || confirm("Leave this round without scoring it?")) { leave(); } return; }
+  const yes = k === " " || k === "enter" || k === "arrowright", no = k === "p" || k === "arrowdown";
+  if (!yes && !no) return; e.preventDefault();
+  if (T.phase === "ready") { if (yes) advance(); return; }
+  if (T.phase === "done") { if (yes) { leave(); } return; }
+  if (T.phase !== "play") return;
+  if (yes) { beep(880, .1); if (T.kind === "solo") T.correct++; T.phase = "flash"; T.hold = .7; show(); }
+  else { beep(200, .25, "square"); T.phase = "pass"; T.hold = G.cfg.pass; show(); }
+}
+window.addEventListener("keydown", onKey);
+route();
+</script>
+</body>
+</html>
