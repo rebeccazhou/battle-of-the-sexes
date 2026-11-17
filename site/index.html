@@ -51,6 +51,7 @@ a{color:inherit}
 summary{cursor:pointer;font-size:var(--s)}
 .catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-top:8px}
 .catchip{border:1px solid var(--team);border-radius:8px;padding:10px 12px}
+.catchip.blank{border-style:dashed}
 .hostlink{position:absolute;top:24px;right:max(16px,env(safe-area-inset-right,0px));font-size:var(--s)}
 ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 
@@ -189,7 +190,8 @@ async function loadHomeCats() {
   const n = {}; items.forEach(i => n[i.category_id] = (n[i.category_id] || 0) + 1);
   const chip = c => `<div class="catchip ${c.team}">${esc(c.emoji || "")} ${esc(c.name)}</div>`;
   const teamBlock = t => { const all = cats.filter(c => c.team === t), ready = all.filter(c => (n[c.id] || 0) >= 15);
-    return `<div class="${t}"><p><span class="teamtxt">${SYM[t]}</span> ${ready.length} of 6 ready${all.length > ready.length ? `, ${all.length - ready.length} in progress` : ""}</p>${ready.length ? `<div class="catgrid">${ready.map(chip).join("")}</div>` : ""}</div>`; };
+    const blanks = Math.max(0, 6 - ready.length);
+    return `<div class="${t}" style="margin-top:12px"><p><span class="teamtxt">${SYM[t]}</span> ${ready.length} of 6 ready${all.length > ready.length ? `, ${all.length - ready.length} in progress` : ""}</p><div class="catgrid">${ready.map(chip).join("")}${`<div class="catchip blank ${t}" aria-hidden="true">&nbsp;</div>`.repeat(blanks)}</div></div>`; };
   const sys = cats.filter(c => c.team === "wild");
   box.innerHTML = `<h3>The categories</h3>
     <p>Round 1: built by the teams. A category appears here once it has 15 pictures.</p>
