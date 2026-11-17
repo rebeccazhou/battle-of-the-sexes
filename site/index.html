@@ -313,7 +313,7 @@ function renderCat(cat) {
     box.innerHTML = `<p class="muted" style="margin:0 0 8px">Tap the best one. Avoid pictures with the name written on them.</p><div class="cands">${B.cands.map((u, i) => `<button type="button" data-c="${i}" class="${B.pick === u ? "sel" : ""}"><img src="${esc(u)}" alt="Option ${i + 1}" loading="lazy"></button>`).join("")}</div>`;
     box.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { setPick(B.cands[+b.dataset.c]); $("url").value = ""; drawCands(); });
   };
-  const find = async () => { const q = ($("q").value.trim() || $("ans").value.trim()); if (!q) { $("ans").focus(); return; } B.cands = "loading"; setPick(null); drawCands(); B.cands = await findImages(q); drawCands(); };
+  const find = async () => { const q = ($("q").value.trim() || $("ans").value.trim()); if (!q) { $("ans").focus(); return; } B.cands = "loading"; setPick(null); drawCands(); B.cands = await findImages(q, cat.name); drawCands(); };
   $("find").onclick = find;
   $("ans").onkeydown = $("q").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); find(); } };
   $("url").oninput = () => { const u = $("url").value.trim(); setPick(/^https?:\/\/\S+$/.test(u) ? u : null); drawCands(); };
@@ -326,16 +326,18 @@ function renderCat(cat) {
   drawCands();
 }
 /* image finder: Wikipedia lead pictures first, then Wikimedia Commons search */
-async function findImages(q) {
-  const enc = encodeURIComponent(q), out = [];
+// image finder: Wikipedia article pictures and Wikimedia Commons photos.
+// The category name is added to the Wikipedia search so "Mercury" in Space finds the planet, not the singer;
+// a plain search follows as a fallback, then Commons photos (searched as "answer category" first, then the answer alone).
+async function findImages(q, cat) {
+  const out = [], hint = (cat || "").trim();
   const get = async u => { try { const r = await fetch(u); return r.ok ? await r.json() : null; } catch { return null; } };
-  const [wp, cm] = await Promise.all([
-    get(`https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=960&pilicense=any`),
-    get(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc}&gsrnamespace=6&gsrlimit=18&prop=imageinfo&iiprop=url|mime&iiurlwidth=960`)
-  ]);
+  const wiki = term => get(`https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(term)}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=960&pilicense=any`);
+  const commons = (term, n) => get(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(term)}&gsrnamespace=6&gsrlimit=${n}&prop=imageinfo&iiprop=url|mime&iiurlwidth=960`);
+  const [wpCat, wp, cmCat, cm] = await Promise.all([hint ? wiki(`${q} ${hint}`) : null, wiki(q), hint ? commons(`${q} ${hint}`, 8) : null, commons(q, 18)]);
   const byIndex = o => Object.values(o?.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
-  for (const p of byIndex(wp)) if (p.thumbnail?.source) out.push(p.thumbnail.source);
-  for (const p of byIndex(cm)) { const i = p.imageinfo?.[0]; if (i && /image\/(jpeg|png|webp)/.test(i.mime) && (i.thumburl || i.url)) out.push(i.thumburl || i.url); }
+  for (const res of [wpCat, wp]) for (const p of byIndex(res)) if (p.thumbnail?.source) out.push(p.thumbnail.source);
+  for (const res of [cmCat, cm]) for (const p of byIndex(res)) { const i = p.imageinfo?.[0]; if (i && /image\/(jpeg|png|webp)/.test(i.mime) && (i.thumburl || i.url)) out.push(i.thumburl || i.url); }
   return [...new Set(out)].slice(0, 18);
 }
 function shrink(file) {
