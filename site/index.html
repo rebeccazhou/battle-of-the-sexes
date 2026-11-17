@@ -325,7 +325,19 @@ let answerWin = null;
 const isSandbox = () => location.hash === "#sandbox";
 const isHost = () => location.hash === "#host" || isSandbox();
 const gameKey = () => isSandbox() ? "floor_game_sandbox" : "floor_game";
-function saveG() { store.set(gameKey(), { cfg: G.cfg, own: G.own, up: G.up }); }
+function saveG() { store.set(gameKey(), { cfg: G.cfg, own: G.own, up: G.up, order: G.order }); }
+// lineup: a random team starts, teams alternate, players shuffled within each team; everyone plays once per round
+function makeOrder(roster) {
+  const girls = roster.filter(p => p.team === "girls").map(p => p.name), boys = roster.filter(p => p.team === "boys").map(p => p.name);
+  if (!girls.length && !boys.length) return [];
+  const first = Math.random() < .5 ? "girls" : "boys";
+  const round = () => { const t = { girls: shuffle(girls), boys: shuffle(boys) }, a = t[first], b = t[other(first)], out = [];
+    for (let i = 0; i < Math.max(a.length, b.length); i++) { if (a[i]) out.push({ name: a[i], team: first }); if (b[i]) out.push({ name: b[i], team: other(first) }); }
+    return out; };
+  return [...round(), ...round()];
+}
+const turnsPlayed = () => Object.keys(G.own).filter(k => k !== "tiebreak").length;
+const current = (k = 0) => G.order?.[turnsPlayed() + k] || null;
 async function hostInit() {
   app.innerHTML = `<div class="wrap"><p>Loading categories…</p></div>`;
   let cats, items;
@@ -336,7 +348,12 @@ async function hostInit() {
   cats = cats.filter(c => c.team !== "demo");
   // the sandbox plays only the sb_ test categories; the real game never sees them
   cats = isSandbox() ? cats.filter(c => c.team.startsWith("sb_")).map(c => Object.assign(c, { team: c.team.slice(3) })) : cats.filter(c => !c.team.startsWith("sb_"));
-  G = { cats, demo, cfg: Object.assign({}, DEF, s.cfg), own: s.own || {}, up: s.up || (Math.random() < .5 ? "girls" : "boys") };
+  G = { cats, demo, cfg: Object.assign({}, DEF, s.cfg), own: s.own || {}, up: s.up || (Math.random() < .5 ? "girls" : "boys"), order: s.order || null };
+  if (!G.order?.length) {
+    let roster = []; try { roster = await api("rpc/floor_roster", { method: "POST", body: {} }); } catch {}
+    if (isSandbox()) roster = [["Ava", "girls"], ["Bea", "girls"], ["Cleo", "girls"], ["Dan", "boys"], ["Eli", "boys"], ["Finn", "boys"]].map(([name, team]) => ({ name, team }));
+    G.order = makeOrder(roster); saveG();
+  }
   for (const id of Object.keys(G.own)) if ((id !== "tiebreak" && !cats.some(c => c.id === id)) || typeof G.own[id].pts !== "number") delete G.own[id];
   T = null; renderBoard();
 }
@@ -358,16 +375,19 @@ function renderBoard() {
   const left = t => tilesOf(other(t)).filter(c => !G.own[c.id]).length;   // round 2 tiles team t still has to face
   const sysLeft = sys.filter(c => !G.own[c.id]).length, any = team.length + sys.length > 0;
   const r1 = sysLeft > 0;
+  const cur = current(), nxt = current(1);
+  if (cur) G.up = cur.team;
   if (!r1 && left(G.up) === 0 && left(other(G.up)) > 0) G.up = other(G.up);
   const done = any && !r1 && !left("girls") && !left("boys");
   const gs = count("girls"), bs = count("boys");
   const tile = c => {
     const o = G.own[c.id], isSys = c.team === "wild", open = !o && (isSys ? r1 : !r1 && other(c.team) === G.up);
-    const tag = o ? `${SYM[o.owner]} +${o.pts}` : isSys ? "Round 1" : `Round 2 · ${SYM[c.team]} list`;
+    const tag = o ? `${SYM[o.owner]} ${o.player ? o.player + " " : ""}+${o.pts}` : isSys ? "Round 1" : `Round 2 · ${SYM[c.team]} list`;
     return `<button class="tile ${c.team} ${o ? "owned" : open ? "open" : "locked"}" style="${o ? `--owner:var(--${o.owner})` : isSys ? `--tint:${emojiTint(c.emoji)}` : ""}" data-tile="${c.id}" title="Shift-click to correct the score"><span class="em">${esc(c.emoji || "")}</span><span class="nm">${esc(c.name)}</span><span class="tag">${esc(tag)}</span></button>`;
   };
-  const upTxt = done ? (gs === bs ? "Tied! Play the tiebreak duel" : `${TEAM[gs > bs ? "girls" : "boys"]} win, ${Math.max(gs, bs)} to ${Math.min(gs, bs)}!`) : any ? `Round ${r1 ? 1 : 2}: ${SYM[G.up]} is up` : "No categories yet";
-  const sub = done || !any ? "" : r1 ? `${G.up === "girls" ? "She picks" : "He picks"} any everyday category left on the board` : `${TEAM[other(G.up)]}, pick which of your categories ${G.up === "girls" ? "she" : "he"} faces`;
+  const upTxt = done ? (gs === bs ? "Tied! Play the tiebreak duel" : `${TEAM[gs > bs ? "girls" : "boys"]} win, ${Math.max(gs, bs)} to ${Math.min(gs, bs)}!`) : any ? `Round ${r1 ? 1 : 2}: ${SYM[G.up]} ${cur ? esc(cur.name) : ""} is up` : "No categories yet";
+  const who = cur ? esc(cur.name) : G.up === "girls" ? "she" : "he";
+  const sub = done || !any ? "" : (r1 ? `${cur ? who : G.up === "girls" ? "She" : "He"} picks any everyday category left on the board` : `${TEAM[other(G.up)]}, pick which of your categories ${who} faces`) + (nxt ? ` · Next: ${SYM[nxt.team]} ${esc(nxt.name)}` : "");
   app.innerHTML = `<div class="stage">
     <div class="score"><div class="side girls"><span class="dot" aria-label="Girls">${SYM.girls}</span><span class="num">${gs}</span></div>
       <div class="mid"><div class="up">${upTxt}</div><div class="sub">${sub}</div></div>
@@ -388,7 +408,7 @@ function renderBoard() {
   document.getElementById("bprac").onclick = () => G.demo?.items.length ? startTurn(G.demo, { practice: true }) : toast("The practice category has no pictures yet.");
   document.getElementById("btie").onclick = () => { const items = sys.flatMap(c => c.items); items.length ? startDuel({ id: "tiebreak", name: "Tiebreak", emoji: "", items }) : toast("No pictures available for a tiebreak."); };
   document.getElementById("bfs").onclick = () => document.documentElement.requestFullscreen?.().catch(() => {});
-  document.getElementById("bnew").onclick = () => { if (confirm("Clear the board and start a new game?")) { G.own = {}; G.up = Math.random() < .5 ? "girls" : "boys"; saveG(); renderBoard(); } };
+  document.getElementById("bnew").onclick = () => { if (confirm("Clear the board and start a new game?")) { G.own = {}; G.order = null; saveG(); hostInit(); } };
   document.getElementById("bset").onclick = () => {
     const ask = (label, k) => { const v = prompt(label, G.cfg[k]); const n = parseInt(v, 10); if (n > 0) G.cfg[k] = n; };
     ask("Seconds on the clock for a turn", "clock"); ask("Seconds lost on a pass", "pass"); ask("Seconds each in the tiebreak duel", "duel"); saveG(); renderBoard();
@@ -438,8 +458,9 @@ function startTurn(cat, opt = {}) {
   const team = opt.practice ? (location.hash === "#practice" ? (B.team || "wild") : G.up) : cat.team === "wild" ? G.up : other(cat.team);
   T = { kind: "solo", cat, team, practice: !!opt.practice, items, i: -1, correct: 0, time: opt.practice ? 30 : G.cfg.clock, phase: "ready", hold: 0 };
   T.secs = T.time;
+  T.player = !opt.practice && current() && current().team === team ? current().name : "";
   app.innerHTML = `<div class="play ${T.team}">
-    <div class="ptop"><div class="who">${T.practice ? "Practice" : `<span aria-label="${TEAM[T.team]} up">${SYM[T.team]}</span>`}</div><h2>${esc(cat.emoji || "")} ${esc(cat.name)}</h2><div class="clock" id="clock">${fmt(T.time)}</div></div>
+    <div class="ptop"><div class="who">${T.practice ? "Practice" : `<span aria-label="${TEAM[T.team]} up">${SYM[T.team]}</span> ${esc(T.player)}`}</div><h2>${esc(cat.emoji || "")} ${esc(cat.name)}</h2><div class="clock" id="clock">${fmt(T.time)}</div></div>
     <div class="pimg" id="pimg"></div>
     <div class="pbot"><div class="pips" id="pips"></div><div class="keys"><button class="p" data-k="p">Pass (P)</button><button class="c" data-k=" ">Correct (Space)</button></div></div></div>`;
   app.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { b.blur(); onKey({ key: b.dataset.k, preventDefault() {} }); });
@@ -481,9 +502,9 @@ function tick(dt) {
   else ["girls", "boys"].forEach(t => { const c = document.getElementById("c" + t); if (c) { c.textContent = fmt(T.time[t]); c.classList.toggle("low", T.time[t] <= 10); } });
 }
 function endSolo(why) {
-  if (!T.practice) { G.own[T.cat.id] = { owner: T.team, pts: T.correct }; G.up = other(T.team); saveG(); }
+  if (!T.practice) { G.own[T.cat.id] = { owner: T.team, pts: T.correct, player: T.player || undefined }; G.up = other(T.team); saveG(); }
   T.phase = "done"; T.winner = T.team;
-  T.headline = T.practice ? `${T.correct} named` : `${T.correct} ${T.correct === 1 ? "point" : "points"} for the ${TEAM[T.team].toLowerCase()}`;
+  T.headline = T.practice ? `${T.correct} named` : `${T.correct} ${T.correct === 1 ? "point" : "points"} for ${T.player || "the " + TEAM[T.team].toLowerCase()}`;
   T.detail = T.practice ? `${why}. That was just practice, nothing is scored.` : `${why}.`; [660, 880, 1100].forEach((f, i) => setTimeout(() => beep(f, .18), i * 130)); show();
 }
 /* ----- wildcard duel ----- */
