@@ -7,7 +7,7 @@
 <style>
 /* Minimal: black, white, blue (girls), green (boys). Helvetica. Four page sizes, four stage sizes. */
 :root{
-  --bg:#000; --fg:#fff; --girls:#6473ff; --boys:#d0ff64;
+  --bg:#40392f; --fg:#fff; --girls:#6473ff; --boys:#d0ff64;
   --font:"Helvetica Neue",Helvetica,Arial,sans-serif;
   --s:14px; --m:17px; --l:28px; --xl:clamp(44px,9vw,84px);
   --ps:clamp(12px,1.3vw,20px); --pm:clamp(18px,2.4vw,38px); --pl:clamp(28px,4.4vw,72px); --pxl:clamp(48px,7.5vw,124px);
@@ -37,22 +37,25 @@ a{color:inherit}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 18px;border-radius:8px;z-index:50}
 
 /* home */
-.hero{padding:40px 0 12px}
-.hero h1{font-size:var(--xl);line-height:.95}
-.hero .ed{margin:10px 0 0;font-size:var(--l)}
-.hero .vs{margin:14px 0 0;font-size:var(--xl);line-height:1;display:flex;align-items:center;gap:.25em}
-.hero .vs small{font-size:var(--m)}
-.hero .g{color:var(--girls)} .hero .b{color:var(--boys)}
-.cta{display:inline-block;background:var(--fg);color:var(--bg);text-decoration:none;border-radius:8px;padding:14px 22px;font-weight:700}
+.home{max-width:1300px;margin:0 auto;padding:44px max(16px,env(safe-area-inset-right,0px)) 80px max(16px,env(safe-area-inset-left,0px));display:grid;column-gap:80px;row-gap:24px;align-items:start;
+  grid-template-columns:minmax(0,595fr) minmax(0,625fr);
+  grid-template-areas:"title actions" "intro cats" "play cats" "win cats" ". cats";grid-template-rows:auto auto auto auto 1fr}
+.h-title{grid-area:title;font-size:30px;line-height:1.13}
+.h-intro{grid-area:intro;margin:0;font-size:24px;line-height:1.29}
+.h-actions{grid-area:actions;display:flex;flex-wrap:wrap;gap:10px}
+.h-play{grid-area:play;padding-top:24px}.h-play h3{margin-bottom:6px}.h-play p{margin:0 0 24px}.h-play p:last-child{margin:0}
+.h-win{grid-area:win;margin:24px 0 0;font-size:24px;line-height:1.29}
+.h-cats{grid-area:cats;max-width:544px;width:100%;display:flex;flex-direction:column;gap:8px}
+.h-cats h3,.h-cats p{text-align:center;margin:0}.h-cats h3{margin-top:24px}.h-cats .catgrid+p{margin-top:8px}
+@media (max-width:900px){.home{grid-template-columns:minmax(0,1fr);grid-template-areas:"title" "intro" "actions" "play" "win" "cats";grid-template-rows:none}.h-cats{max-width:none}}
+.cta{display:inline-block;background:var(--fg);color:#000;text-decoration:none;border-radius:8px;padding:14px 22px;font-weight:700}
 .cta2{display:inline-block;border:1px solid var(--fg);border-radius:8px;padding:14px 22px;text-decoration:none}
-.how{display:grid;gap:24px;margin-top:10px}.how p{margin:6px 0 0}.how>p{margin:0}.how ul{margin:6px 0 0;padding-left:20px}.how li{margin:8px 0}
-.chips{display:flex;flex-wrap:wrap;gap:8px}.chips button{padding:6px 12px;font-size:var(--s);border-radius:999px}
+.catgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.catchip{min-height:85px;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.4;background:color-mix(in srgb,var(--tint) 10%,transparent)}
+.catchip.girls{background:color-mix(in srgb,var(--girls) 30%,transparent)}
+.catchip.boys{background:color-mix(in srgb,var(--boys) 13%,transparent)}
 .big{font-size:var(--xl)}
 summary{cursor:pointer;font-size:var(--s)}
-.catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-top:8px}
-.catchip{border:1px solid var(--team);border-radius:8px;padding:10px 12px}
-.catchip.blank{border-style:dashed}
-.hostlink{position:absolute;top:24px;right:max(16px,env(safe-area-inset-right,0px));font-size:var(--s)}
 ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 
 /* builder */
@@ -149,54 +152,32 @@ window.addEventListener("hashchange", route);
 
 /* ---------- home ---------- */
 function renderHome() {
-  app.innerHTML = `<div class="wrap stack" style="position:relative">
-    <div class="hero"><h1>Battle of<br>the Sexes</h1>
-      <p class="ed">Thanksgiving 2026 Edition</p>
-      <p class="vs" aria-label="Girls versus boys"><span class="g">♀&#xFE0E;</span><small>vs</small><span class="b">♂&#xFE0E;</span></p></div>
-    <div class="row"><a href="#build" class="cta">Build your team's categories</a><a href="#practice" class="cta2">Try a practice round</a></div>
-    <div class="how">
-      <p>This is a picture-naming game, battle of the sexes. A picture goes up on the projector and the player has to say what it is. Each team secretly builds categories it thinks the other team will struggle with.</p>
-      <div><h3>Game Prep</h3>
-        <p>Build your team's categories! Each team needs to create 6 categories before Thanksgiving. Everyone on the team can help, and you can do it from your phone whenever you have a few minutes.</p>
-        <ul>
-        <li>Tap “Build your team's categories” above and tap your name. The first time, you'll be asked to create a password. After that you'll only see your own team's categories, so the other team's pictures stay a surprise.</li>
-        <li>Create a category by giving it a name. If you're stuck, the page lists categories from the TV show The Floor that you can tap.</li>
-        <li>Add pictures to the category one at a time. Type the answer the player will have to say, tap “Find pictures”, and choose the best photo from the options. You can also upload a photo of your own. Choose pictures that don't have the answer written on them, such as a name on a jersey or a label on a product.</li>
-        <li>Try to get at least 15 pictures into each category. A player sees as many as they can get through in 60 seconds, so more is better.</li></ul></div>
-      <div><h3>Game Play</h3>
-        <ul>
-        <li>One player stands up at a time, and the teams take turns. A category is chosen, the clock starts at 60 seconds, and pictures appear on the projector one after another.</li>
-        <li>The player says out loud what each picture is. As soon as they get one right, the next picture appears. Every correct answer is worth one point for their team.
-          <ul>
-          <li>If the player doesn't know a picture, they say “pass”. The answer is shown for 3 seconds while the clock keeps running, and then the next picture appears. There is no limit on passes, but each one uses up time.</li>
-          <li>The other team acts as the judge and decides whether each answer counts. First names or last names alone are fine if it's clear who the player means.</li></ul></li>
-        <li>When the clock reaches zero the turn is over, and the points are added to the team's total on the scoreboard.</li>
-        <li>The team with the most points after both rounds wins. If the score is tied, one girl and one guy play a head-to-head tiebreak.</li>
-        <li>Everyone plays twice, once in each round.
-          <ul>
-          <li>Round 1 uses the categories the teams built. When it's your turn, the other team chooses which of their categories you have to face.</li>
-          <li>Round 2 uses everyday categories that are already loaded into the game. When it's your turn, you choose your own category from the ones still left on the board. Each category can only be played once.</li></ul></li></ul></div>
-      <div><h3>Want to see what it feels like?</h3>
-        <p>Tap “Try a practice round” above. You'll get 30 seconds of farm animals on your own phone. Nothing is scored and you can play it as many times as you like.</p></div>
-      <div id="homecats"></div>
-    </div></div>`;
+  app.innerHTML = `<div class="home">
+    <h1 class="h-title">Battle of the Sexes<br>Thanksgiving 2026 Edition</h1>
+    <p class="h-intro">This is a picture-naming game, battle of the sexes. A picture goes up on the projector and the player has to say what it is. Each team builds categories it thinks the other team will struggle with.</p>
+    <div class="h-actions"><a href="#build" class="cta">Build your team's categories</a><a href="#practice" class="cta2">Try a practice round</a></div>
+    <div class="h-play"><h3>Game Play</h3>
+      <p>⛳️ One player stands up at a time, and the teams take turns. A category is chosen, the clock starts at 60 seconds, and pictures appear on the projector one after another.</p>
+      <p>🏞️ The player says out loud what each picture is. As soon as they get one right, the next picture appears. Every correct answer is worth one point for their team.</p>
+      <p>🚫 If the player doesn't know a picture, they say “pass”. The answer is shown for 3 seconds while the clock keeps running, and then the next picture appears. There is no limit on passes, but each one uses up time.</p>
+      <p>⌛ When the clock reaches zero the turn is over, and the points are added to the team's total on the scoreboard.</p>
+      <p>✌️ Everyone plays twice, once in each round. Round 1 uses everyday categories that are already loaded into the game. When it's your turn, you choose your own category from the ones still left on the board. Round 2 uses the categories the teams built. When it's your turn, the other team chooses which of their categories you have to face. Each category can only be played once.</p></div>
+    <p class="h-win">🏅 The team with the most points after each player plays 2 rounds, 24 rounds in total, wins. If the score is tied, one girl and one guy play a head-to-head tiebreak.</p>
+    <div class="h-cats" id="homecats"><h3>The categories</h3><p>Round 1: Game created everyday categories.</p><div class="catgrid"></div><p>Round 2: Teams created bespoke categories.</p><div class="catgrid"></div></div>
+  </div>`;
   loadHomeCats();
 }
+const CHIP_TINTS = ["#ffc964", "#64e8ff", "#ff6664", "#ff6464", "#c0c0c0", "#85ff64", "#ffff64", "#64d3ff", "#ffaa64", "#ff64fa", "#ffc364", "#d0ff64"];
 async function loadHomeCats() {
   let cats, items;
   try { cats = await api("floor_categories?select=id,team,name,emoji&order=created_at"); items = await api("floor_items?select=category_id"); } catch { return; }
   const box = document.getElementById("homecats"); if (!box) return;
   const n = {}; items.forEach(i => n[i.category_id] = (n[i.category_id] || 0) + 1);
-  const chip = c => `<div class="catchip ${c.team}">${esc(c.emoji || "")} ${esc(c.name)}</div>`;
-  const teamBlock = t => { const all = cats.filter(c => c.team === t), ready = all.filter(c => (n[c.id] || 0) >= 15);
-    const blanks = Math.max(0, 6 - ready.length);
-    return `<div class="${t}" style="margin-top:12px"><p><span class="teamtxt">${SYM[t]}</span> ${ready.length} of 6 ready${all.length > ready.length ? `, ${all.length - ready.length} in progress` : ""}</p><div class="catgrid">${ready.map(chip).join("")}${`<div class="catchip blank ${t}" aria-hidden="true">&nbsp;</div>`.repeat(blanks)}</div></div>`; };
-  const sys = cats.filter(c => c.team === "wild");
-  box.innerHTML = `<h3>The categories</h3>
-    <p>Round 1: built by the teams. A category appears here once it has 15 pictures.</p>
-    ${teamBlock("girls")}${teamBlock("boys")}
-    <p style="margin-top:16px">Round 2: everyday categories, already loaded.</p>
-    <div class="catgrid">${sys.map(chip).join("")}</div>`;
+  const sys = cats.filter(c => c.team === "wild").map((c, i) => `<div class="catchip" style="--tint:${CHIP_TINTS[i % CHIP_TINTS.length]}"><span>${esc(c.emoji || "")}</span><span>${esc(c.name)}</span></div>`).join("");
+  const team = t => { const ready = cats.filter(c => c.team === t && (n[c.id] || 0) >= 15).slice(0, 6), dot = t === "girls" ? "🟣" : "🟢";
+    return Array.from({ length: 6 }, (_, k) => `<div class="catchip ${t}"><span>${dot}</span><span>${ready[k] ? esc(ready[k].name) : "&nbsp;"}</span></div>`).join(""); };
+  box.innerHTML = `<h3>The categories</h3><p>Round 1: Game created everyday categories.</p><div class="catgrid">${sys}</div>
+    <p>Round 2: Teams created bespoke categories.</p><div class="catgrid">${team("girls")}${team("boys")}</div>`;
 }
 
 /* ---------- builder ---------- */
@@ -346,24 +327,24 @@ function renderBoard() {
   const g = tilesOf("girls"), b = tilesOf("boys"), sys = tilesOf("wild");
   // interleave so the top of the board is a mix of both teams' tiles
   const team = []; for (let i = 0; i < Math.max(g.length, b.length); i++) { const pair = i % 2 ? [b[i], g[i]] : [g[i], b[i]]; pair.forEach(c => c && team.push(c)); }
-  const left = t => tilesOf(other(t)).filter(c => !G.own[c.id]).length;   // round 1 tiles team t still has to face
-  const r1 = left("girls") + left("boys") > 0;
-  if (r1 && !left(G.up)) G.up = other(G.up);
+  const left = t => tilesOf(other(t)).filter(c => !G.own[c.id]).length;   // round 2 tiles team t still has to face
   const sysLeft = sys.filter(c => !G.own[c.id]).length, any = team.length + sys.length > 0;
-  const done = any && !r1 && !sysLeft;
+  const r1 = sysLeft > 0;
+  if (!r1 && left(G.up) === 0 && left(other(G.up)) > 0) G.up = other(G.up);
+  const done = any && !r1 && !left("girls") && !left("boys");
   const gs = count("girls"), bs = count("boys");
   const tile = c => {
-    const o = G.own[c.id], isSys = c.team === "wild", open = !o && (isSys ? !r1 : other(c.team) === G.up);
-    const tag = o ? `${SYM[o.owner]} +${o.pts}` : isSys ? "Round 2" : `${SYM[c.team]} list`;
+    const o = G.own[c.id], isSys = c.team === "wild", open = !o && (isSys ? r1 : !r1 && other(c.team) === G.up);
+    const tag = o ? `${SYM[o.owner]} +${o.pts}` : isSys ? "Round 1" : `Round 2 · ${SYM[c.team]} list`;
     return `<button class="tile ${c.team} ${o ? "owned" : open ? "open" : "locked"}" style="${o ? `--owner:var(--${o.owner})` : ""}" data-tile="${c.id}" title="Shift-click to correct the score"><span class="em">${esc(c.emoji || "")}</span><span class="nm">${esc(c.name)}</span><span class="tag">${esc(tag)}</span></button>`;
   };
   const upTxt = done ? (gs === bs ? "Tied! Play the tiebreak duel" : `${TEAM[gs > bs ? "girls" : "boys"]} win, ${Math.max(gs, bs)} to ${Math.min(gs, bs)}!`) : any ? `Round ${r1 ? 1 : 2}: ${SYM[G.up]} is up` : "No categories yet";
-  const sub = done || !any ? "" : r1 ? `${TEAM[other(G.up)]}, pick which of your categories ${G.up === "girls" ? "she" : "he"} faces` : `${G.up === "girls" ? "She picks" : "He picks"} any category left on the board`;
+  const sub = done || !any ? "" : r1 ? `${G.up === "girls" ? "She picks" : "He picks"} any everyday category left on the board` : `${TEAM[other(G.up)]}, pick which of your categories ${G.up === "girls" ? "she" : "he"} faces`;
   app.innerHTML = `<div class="stage">
     <div class="score"><div class="side girls"><span aria-label="Girls">${SYM.girls}</span><span class="num">${gs}</span></div>
       <div class="mid"><div class="up ${done ? "" : G.up}" style="${done ? "" : "color:var(--team)"}">${upTxt}</div><div class="sub">${sub}</div></div>
       <div class="side boys"><span class="num">${bs}</span><span aria-label="Boys">${SYM.boys}</span></div></div>
-    <div class="board">${team.map(tile).join("")}${sys.map(tile).join("")}</div>
+    <div class="board">${sys.map(tile).join("")}${team.map(tile).join("")}</div>
     <div class="hostbar"><span>${isSandbox() ? "<b>Sandbox.</b> Test categories only, nothing here touches the real game · " : ""}${G.cfg.clock}s clock · pass costs ${G.cfg.pass}s · Judges: open ${esc(location.host)}/#judge on a phone to see the answers · Shift-click a tile to correct its score</span>
       <span class="row"><button id="bprac">Practice round</button><button id="btie">Tiebreak duel</button><button id="bset">Settings</button><button id="bans">Answer window</button><button id="bfs">Full screen</button><button id="bnew">New game</button><a href="#">Exit</a></span></div></div>`;
   app.querySelectorAll("[data-tile]").forEach(el => el.onclick = e => {
