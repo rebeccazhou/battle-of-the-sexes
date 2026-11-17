@@ -55,6 +55,8 @@ a{color:inherit}
 .catchip.girls{background:color-mix(in srgb,var(--girls) 30%,transparent)}
 .catchip.boys{background:color-mix(in srgb,var(--boys) 13%,transparent)}
 .big{font-size:var(--xl)}
+.prep{margin-top:18px}.prep p{margin:6px 0 0}.prep ul{margin:8px 0 0;padding-left:20px}.prep li{margin:8px 0}
+.prepbox{background:var(--surface);border-radius:8px;padding:14px 18px}.prepbox .prep{margin-top:8px}.prepbox .prep h3{display:none}
 summary{cursor:pointer;font-size:var(--s)}
 ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 
@@ -216,6 +218,13 @@ async function loadHomeCats() {
 /* ---------- builder ---------- */
 const FLOOR_IDEAS = "A-Listers|Oscar Winners|Comedians|Child Stars|Reality TV Stars|Game Show Hosts|News Personalities|SNL Alumni|Directors|Authors|CEOs|Billionaires|Athletes|Sports MVPs|Wrestlers|Rappers|Pop Stars|Rock Stars|Boy Bands|Girl Groups|Divas|Country Music|One Hit Wonders|Iconic Duos|Famous Hair|Fashion Icons|Fast Food|Snacks|Candy|Cheese|Pasta|Sushi|Breakfast|BBQ|Baked Goods|Pizza Toppings|Ice Cream Flavors|Beer|Tools|Car Parts|Cars|Classic Cars|Sports Equipment|Sneakers|Shoes|Clothing and Accessories|Toys|Games|School Supplies|Bathroom Items|Art Supplies|Electronics|Antiques|Bugs|Birds|Wild Animals|Ocean Animals|Puppies|Flowers|Trees|Plants|Gems|National Parks|Skylines|Islands|U.S. States|New York|Tourist Hotspots|Paintings|Constellations|Space|Weather|The Human Body|Transportation|Aviation|Halloween Costumes".split("|").map(n => ["", n]);
 const IDEAS = { girls: FLOOR_IDEAS, boys: FLOOR_IDEAS };
+const PREP = (first) => `<div class="prep"><h3>Game Prep</h3>
+  <p>Build your team's categories! Each team needs to create 6 categories before Thanksgiving. Everyone on the team can help, and you can do it from your phone whenever you have a few minutes.</p>
+  <ul>
+  <li>${first}</li>
+  <li>Create a category by giving it a name. If you're stuck, the page lists categories from the TV show The Floor that you can tap.</li>
+  <li>Add pictures to the category one at a time. Type the answer the player will have to say, tap “Find pictures”, and choose the best photo from the options. You can also upload a photo of your own. Choose pictures that don't have the answer written on them, such as a name on a jersey or a label on a product.</li>
+  <li>Try to get at least 15 pictures into each category. A player sees as many as they can get through in 60 seconds, so more is better.</li></ul></div>`;
 const B = { me: store.get("floor_me", null), tab: "team", cats: [], items: [], open: null, cands: null, pick: null, busy: false, get team() { return this.me?.team; }, get name() { return this.me?.name; }, get scope() { return this.tab === "wild" ? "wild" : this.team; } };
 async function loadBuild() {
   B.cats = await api(`floor_categories?team=eq.${B.scope}&order=created_at`);
@@ -228,7 +237,8 @@ async function renderLogin(picked) {
   if (!who) {
     app.innerHTML = `<div class="wrap stack"><a href="#">&larr; Home</a><h1>Who are you?</h1>
       <p class="muted" style="margin:0">Tap your name. You'll land on your own team's categories automatically.</p>
-      <div class="teampick">${roster.map(r => `<button data-name="${esc(r.name)}">${esc(r.name)}</button>`).join("") || `<p class="muted">The guest list is empty. Ask the host to add everyone's names.</p>`}</div></div>`;
+      <div class="teampick">${roster.map(r => `<button data-name="${esc(r.name)}">${esc(r.name)}</button>`).join("") || `<p class="muted">The guest list is empty. Ask the host to add everyone's names.</p>`}</div>
+      ${PREP("Tap your name above. The first time, you'll be asked to create a password. After that you'll only see your own team's categories, so the other team's pictures stay a surprise.")}</div>`;
     app.querySelectorAll("[data-name]").forEach(b => b.onclick = () => renderLogin(b.dataset.name));
     return;
   }
@@ -258,6 +268,7 @@ async function renderBuild(reload = true) {
     <div class="row"><span class="grow ${B.team}">Hi ${esc(B.name)} · <b class="teamtxt">Team ${SYM[B.team]}</b></span><button class="ghost" id="sw">Sign out</button></div>
     <div><h1><span class="teamtxt">${wild ? "Wildcard" : TEAM[B.team]}</span> categories</h1>
     <p class="muted" style="margin:6px 0 0">${wild ? `Wildcards are head-to-head duels, so each team adds half the pictures. Add about 10 to each. You only see your own team's half.` : `Build 6 categories the ${foe} won't be able to name. Aim for 15+ pictures in each. Anyone on your team can add.`}</p></div>
+    ${wild ? "" : `<details class="prepbox"><summary>How building works</summary>${PREP("You're signed in, so you'll only see your own team's categories. The other team's pictures stay a surprise.")}</details>`}
     ${wild ? "" : `<div class="count ${B.cats.length >= 6 ? "ok" : ""}">${B.cats.length} of 6 categories</div>`}
     <div class="stack" style="gap:10px">${B.cats.map(c => { const n = B.items.filter(i => i.category_id === c.id).length, want = wild ? 10 : 15; return `<button class="catrow" data-open="${c.id}"><span class="em">${esc(c.emoji || "")}</span><span class="grow" style="flex:1;min-width:0"><b>${esc(c.name)}</b></span><span class="count ${n >= want ? "ok" : ""}">${n}${wild ? " from your team" : " pictures"}</span></button>`; }).join("") || `<p class="muted">${wild ? "No wildcard categories yet." : "No categories yet. Add the first one below."}</p>`}</div>
     ${wild ? "" : `<form class="card stack" id="newcat"><h3>New category</h3>
