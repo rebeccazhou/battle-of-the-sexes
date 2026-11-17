@@ -9,8 +9,8 @@ Live at https://battle-of-the-sexes.vercel.app
 - `site/index.html` is the whole app: one static page with no build step.
   - Home page with the rules, a practice round and the category list
   - Category builder with sign-in and an image finder (Wikipedia and Wikimedia Commons)
-  - Host screen for the projector at `/#host` (not linked from the home page), and a judge view for a phone at `/#judge`
-  - Sandbox host screen at `/#sandbox`, which plays separate test categories and keeps its own scores
+  - Host screen for the projector at `/#host` (not linked from the home page), and the judges' screen at `/#judge` (a second laptop that shows the answer and drives Correct and Pass live over Supabase Realtime)
+  - Sandbox host screen at `/#sandbox` with its judges' screen at `/#sandbox-judge`; it plays separate test categories and keeps its own scores
 - Data lives in Supabase (tables prefixed `floor_`). `schema.sql` recreates them.
 - Hosting is Vercel, project `battle-of-the-sexes` in the personal account.
 

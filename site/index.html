@@ -107,6 +107,17 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 .clock{font-size:var(--pl);font-weight:700;line-height:1;font-variant-numeric:tabular-nums;min-width:2.6ch;text-align:right}
 .dside .clock{font-size:var(--pxl)}
 .clock.low{animation:blink 1s steps(2,start) infinite}@keyframes blink{50%{opacity:0}}
+.jg{height:100%;display:flex;flex-direction:column;padding:2vh 2.5vw;gap:2vh}
+.jg-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:2vw;font-size:var(--pl);line-height:1}
+.jg-top h2{text-align:center;font-size:var(--pm)} .jg-top .clock{text-align:right}
+.jg-main{flex:1;min-height:0;border-radius:8px;background:var(--well);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3vw;gap:2vh}
+.jg-label{margin:0;font-size:var(--pm)}
+.jg-ans{font-size:clamp(40px,8vw,140px);font-weight:700;line-height:1.05;overflow-wrap:anywhere}
+.jg-keys{display:grid;grid-template-columns:1fr 1fr;gap:1.2vw;height:30vh}
+.jg-keys:empty{display:none}
+.jg-keys button{font-size:var(--pl);border-radius:8px}
+.jg-keys button.one{grid-column:1/-1}
+.jg-foot{display:flex;justify-content:space-between;gap:2vw;font-size:var(--s)}
 .pimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;border-radius:8px;overflow:hidden;background:var(--well)}
 .pimg img{max-width:100%;max-height:100%;object-fit:contain;background:#fff}
 .pimg .ans{position:absolute;left:0;right:0;bottom:0;padding:1.5vh 2vw;font-size:var(--pl);font-weight:700;text-align:center;background:var(--bg)}
@@ -129,6 +140,7 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 </head>
 <body>
 <div id="app" style="height:100%"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 "use strict";
 const SB = "https://ippikfbtknoddvumwgil.supabase.co";
@@ -153,7 +165,7 @@ let stopLoop = null;
 function route() {
   if (stopLoop) { stopLoop(); stopLoop = null; }
   const h = location.hash.replace("#", "");
-  if (h === "build") renderBuild(); else if (h === "host" || h === "sandbox") hostInit(); else if (h === "practice") practiceInit(); else if (h === "judge") renderJudge(); else renderHome();
+  if (h === "build") renderBuild(); else if (h === "host" || h === "sandbox") hostInit(); else if (h === "practice") practiceInit(); else if (h === "judge" || h === "sandbox-judge") renderJudge(h === "sandbox-judge"); else renderHome();
 }
 window.addEventListener("hashchange", route);
 let resizeT; window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (G && !T && typeof isHost === "function" && isHost()) renderBoard(); }, 150); });
@@ -321,7 +333,6 @@ function shrink(file) {
 const DEF = { clock: 60, pass: 3, duel: 30 };
 let G = null;      // { cats, cfg, own:{catId:{owner,score}}, up }
 let T = null;      // active solo turn or duel
-let answerWin = null;
 const isSandbox = () => location.hash === "#sandbox";
 const isHost = () => location.hash === "#host" || isSandbox();
 const gameKey = () => isSandbox() ? "floor_game_sandbox" : "floor_game";
@@ -354,6 +365,8 @@ async function hostInit() {
     if (isSandbox()) roster = [["Ava", "girls"], ["Bea", "girls"], ["Cleo", "girls"], ["Dan", "boys"], ["Eli", "boys"], ["Finn", "boys"]].map(([name, team]) => ({ name, team }));
     G.order = makeOrder(roster); saveG();
   }
+  LIVE.onReady = () => pushState(true);
+  liveChannel(isSandbox() ? "floor-sandbox" : "floor-game");
   for (const id of Object.keys(G.own)) if ((id !== "tiebreak" && !cats.some(c => c.id === id)) || typeof G.own[id].pts !== "number") delete G.own[id];
   T = null; renderBoard();
 }
@@ -393,8 +406,8 @@ function renderBoard() {
       <div class="mid"><div class="up">${upTxt}</div><div class="sub">${sub}</div></div>
       <div class="side boys"><span class="num">${bs}</span><span class="dot" aria-label="Boys">${SYM.boys}</span></div></div>
     <div class="board" style="${boardGrid(sys.length + team.length)}">${sys.map(tile).join("")}${team.map(tile).join("")}</div>
-    <div class="hostbar"><span>${isSandbox() ? "<b>Sandbox.</b> Test categories only, nothing here touches the real game · " : ""}${G.cfg.clock}s clock · pass costs ${G.cfg.pass}s · Judges: open ${esc(location.host)}/#judge on a phone to see the answers · Shift-click a tile to correct its score</span>
-      <span class="row"><button id="bprac">Practice round</button><button id="btie">Tiebreak duel</button><button id="bset">Settings</button><button id="bans">Answer window</button><button id="bfs">Full screen</button><button id="bnew">New game</button><a href="#">Exit</a></span></div></div>`;
+    <div class="hostbar"><span>${isSandbox() ? "<b>Sandbox.</b> Test categories only, nothing here touches the real game · " : ""}${G.cfg.clock}s clock · pass costs ${G.cfg.pass}s · Judges: open ${esc(location.host)}/#${isSandbox() ? "sandbox-judge" : "judge"} on the judges' laptop · Shift-click a tile to correct its score</span>
+      <span class="row"><button id="bprac">Practice round</button><button id="btie">Tiebreak duel</button><button id="bset">Settings</button><button id="bfs">Full screen</button><button id="bnew">New game</button><a href="#">Exit</a></span></div></div>`;
   app.querySelectorAll("[data-tile]").forEach(el => el.onclick = e => {
     const c = G.cats.find(x => x.id === el.dataset.tile), o = G.own[c.id];
     if (e.shiftKey) {
@@ -413,14 +426,6 @@ function renderBoard() {
     const ask = (label, k) => { const v = prompt(label, G.cfg[k]); const n = parseInt(v, 10); if (n > 0) G.cfg[k] = n; };
     ask("Seconds on the clock for a turn", "clock"); ask("Seconds lost on a pass", "pass"); ask("Seconds each in the tiebreak duel", "duel"); saveG(); renderBoard();
   };
-  document.getElementById("bans").onclick = () => {
-    answerWin = window.open("", "floorAnswer", "width=520,height=300");
-    if (!answerWin) return toast("Allow pop-ups to use the answer window.");
-    answerWin.document.title = "Answer (judges only)";
-    answerWin.document.body.innerHTML = `<div style="font:14px Helvetica,Arial,sans-serif;color:#fff;padding:16px 20px 0">Answer, judges only. Space = correct, P = pass</div><div id="a" style="font:700 44px Helvetica,Arial,sans-serif;padding:8px 20px"></div>`;
-    answerWin.document.body.style.cssText = "margin:0;background:#000;color:#fff";
-    answerWin.addEventListener("keydown", onKey);
-  };
 }
 async function practiceInit() {
   app.innerHTML = `<div class="wrap"><p>Loading the practice round…</p></div>`;
@@ -431,18 +436,81 @@ async function practiceInit() {
     if (location.hash === "#practice") startTurn(cat, { practice: true });
   } catch { app.innerHTML = `<div class="wrap stack"><p>The practice round isn't ready yet.</p><a href="#">&larr; Home</a></div>`; }
 }
-function renderJudge() {
-  const note = "Judge view. Keep this screen hidden from the player.";
-  app.innerHTML = `<div class="wrap stack"><a href="#">&larr; Home</a><p class="muted" id="jl" style="margin:0">${note}</p><h1 class="big" id="ja">…</h1></div>`;
-  const pull = async () => { try { const [r] = await api("floor_live?id=eq.1"); if (location.hash !== "#judge") return; document.getElementById("ja").textContent = r.answer || "Waiting for the next picture"; document.getElementById("jl").textContent = (r.label && r.answer ? r.label + ". " : "") + note; } catch {} };
-  pull(); const id = setInterval(pull, 700); stopLoop = () => clearInterval(id);
+/* ---------- live link between the projector and the judges' laptop (Supabase Realtime broadcast) ---------- */
+const LIVE = { client: null, chan: null, name: null, ready: false, onReady: null, last: "" };
+function liveChannel(name) {
+  if (LIVE.name === name && LIVE.chan) return LIVE.chan;
+  if (!window.supabase) return null;
+  LIVE.client = LIVE.client || window.supabase.createClient(SB, KEY);
+  if (LIVE.chan) LIVE.client.removeChannel(LIVE.chan);
+  LIVE.name = name; LIVE.ready = false; LIVE.last = "";
+  LIVE.chan = LIVE.client.channel(name, { config: { broadcast: { self: false } } })
+    .on("broadcast", { event: "cmd" }, ({ payload }) => onRemoteCmd(payload || {}))
+    .on("broadcast", { event: "hello" }, () => pushState(true))
+    .on("broadcast", { event: "state" }, ({ payload }) => onRemoteState(payload || {}))
+    .subscribe(st => { LIVE.ready = st === "SUBSCRIBED"; if (LIVE.ready && LIVE.onReady) LIVE.onReady(); });
+  return LIVE.chan;
 }
+function liveSend(event, payload) { if (LIVE.chan && LIVE.ready) try { LIVE.chan.send({ type: "broadcast", event, payload }); } catch {} }
+// projector: describe what's on screen so the judges' laptop can mirror it
+function pushState(force) {
+  if (!isHost() || !G) return;
+  let st;
+  if (T) {
+    const it = T.items[T.i], showing = T.phase === "play" || T.phase === "flash" || T.phase === "pass";
+    st = { view: T.kind, phase: T.phase, cat: T.cat.name, emoji: T.cat.emoji || "", team: T.kind === "duel" ? T.active : T.team, player: T.player || "",
+      answer: showing && it ? it.answer : "", time: Math.max(0, Math.ceil(T.kind === "duel" ? T.time[T.active] : T.time)), correct: T.correct || 0, practice: !!T.practice, headline: T.phase === "done" ? T.headline : "" };
+  } else { const c = current(); st = { view: "board", team: G.up, player: c ? c.name : "", score: { girls: count("girls"), boys: count("boys") } }; }
+  const key = JSON.stringify(st); if (!force && key === LIVE.last) return; LIVE.last = key; liveSend("state", st);
+}
+function onRemoteCmd(p) {
+  if (!isHost() || !T) return;
+  const press = key => onKey({ key, preventDefault() {} });
+  if (p.k === "start" && T.phase === "ready") press(" ");
+  else if (p.k === "correct" && T.phase === "play") press(" ");
+  else if (p.k === "pass" && T.phase === "play") press("p");
+  else if (p.k === "continue" && T.phase === "done") press(" ");
+}
+/* ---------- judges' laptop ---------- */
+const JUDGE = { state: null };
+const isJudge = () => /^#(sandbox-)?judge$/.test(location.hash);
+function renderJudge(sandbox) {
+  JUDGE.state = null;
+  app.innerHTML = `<div class="jg"><div class="jg-top"><div id="jwho"></div><h2 id="jcat"></h2><div class="clock" id="jclock"></div></div>
+    <div class="jg-main" id="jmain"><p class="jg-label">Connecting to the projector…</p><p>Open ${esc(location.host)}/#${sandbox ? "sandbox" : "host"} on the projector laptop.</p></div>
+    <div class="jg-keys" id="jkeys"></div>
+    <div class="jg-foot"><span id="jcount"></span><span>${sandbox ? "Sandbox judges' screen" : "Judges' screen"}. Keep it turned away from the player.</span></div></div>`;
+  LIVE.onReady = () => liveSend("hello", {});
+  liveChannel(sandbox ? "floor-sandbox" : "floor-game");
+  if (LIVE.ready) liveSend("hello", {});
+  const id = setInterval(() => { if (!JUDGE.state) liveSend("hello", {}); }, 2000); stopLoop = () => clearInterval(id);
+}
+function onRemoteState(p) { if (!isJudge()) return; JUDGE.state = p; drawJudge(); }
+function judgeSend(k) { liveSend("cmd", { k }); }
+function drawJudge() {
+  const s = JUDGE.state, $ = id => document.getElementById(id); if (!s || !$("jmain")) return;
+  $("jwho").innerHTML = s.team && SYM[s.team] ? `${SYM[s.team]} ${esc(s.player || "")}` : "";
+  $("jcat").textContent = s.view === "board" ? "" : `${s.emoji || ""} ${s.cat || ""}`;
+  $("jclock").textContent = s.view === "board" ? "" : String(s.time ?? "");
+  $("jclock").classList.toggle("low", s.view !== "board" && s.time <= 10);
+  $("jcount").textContent = s.view === "solo" ? `${s.correct} named` : "";
+  let label = "", main = "", keys = "";
+  if (s.view === "board") { label = "Waiting for the next turn"; main = s.player ? `${SYM[s.team]} ${esc(s.player)} is up` : "Pick a category on the projector"; }
+  else if (s.phase === "ready") { label = "Ready when the player is"; main = esc(s.cat || ""); keys = `<button class="primary one" data-j="start">Start</button>`; }
+  else if (s.phase === "done") { label = "Turn over"; main = esc(s.headline || ""); keys = `<button class="primary one" data-j="continue">Back to the board</button>`; }
+  else { label = s.phase === "flash" ? "Correct" : s.phase === "pass" ? "Passed" : "Answer"; main = esc(s.answer || "");
+    const off = s.phase === "play" ? "" : " disabled"; keys = `<button data-j="pass"${off}>Pass</button><button class="primary" data-j="correct"${off}>Correct</button>`; }
+  $("jmain").innerHTML = `<p class="jg-label">${label}</p><div class="jg-ans">${main}</div>`;
+  if ($("jkeys").dataset.sig !== keys) { $("jkeys").dataset.sig = keys; $("jkeys").innerHTML = keys; $("jkeys").querySelectorAll("[data-j]").forEach(b => b.onclick = () => judgeSend(b.dataset.j)); }
+}
+window.addEventListener("keydown", e => {
+  if (!isJudge() || !JUDGE.state) return;
+  const k = e.key.toLowerCase(), ph = JUDGE.state.phase;
+  if (k === " " || k === "enter") { e.preventDefault(); judgeSend(ph === "ready" ? "start" : ph === "done" ? "continue" : "correct"); }
+  else if (k === "p") { e.preventDefault(); judgeSend("pass"); }
+});
 function leave() { if (stopLoop) { stopLoop(); stopLoop = null; } if (location.hash === "#practice") { T = null; location.hash = ""; } else renderBoard(); }
-let liveLast = null;
-function setAnswer(t) {
-  try { if (answerWin && !answerWin.closed) answerWin.document.getElementById("a").textContent = t; } catch {}
-  if (isHost() && t !== liveLast) { liveLast = t; api("floor_live?id=eq.1", { method: "PATCH", body: { answer: t, label: T?.cat?.name || "", updated_at: new Date().toISOString() } }).catch(() => {}); }
-}
+function setAnswer() { pushState(); }
 
 /* sounds */
 let actx = null;
@@ -498,6 +566,7 @@ function tick(dt) {
     if (T && now <= 0 && T.phase !== "done") { beep(140, .6, "sawtooth"); T.kind === "solo" ? endSolo("Time's up") : endDuel(other(T.active), "Time's up"); }
   }
   if (!T) return;
+  pushState();
   if (T.kind === "solo") { const c = document.getElementById("clock"); if (c) { c.textContent = fmt(T.time); c.classList.toggle("low", T.time <= 10); } }
   else ["girls", "boys"].forEach(t => { const c = document.getElementById("c" + t); if (c) { c.textContent = fmt(T.time[t]); c.classList.toggle("low", T.time[t] <= 10); } });
 }
