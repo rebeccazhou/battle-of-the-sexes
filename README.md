@@ -24,7 +24,7 @@ Then open http://localhost:8765. It talks to the live database.
 ## Deploy
 
 ```bash
-cd site && npx vercel deploy --prod
+npx vercel deploy --prod
 ```
 
 ## Notes
