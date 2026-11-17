@@ -320,7 +320,10 @@ function renderCat(cat) {
   $("file").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const u = await shrink(f); B.cands = [u]; setPick(u); drawCands(); } catch { toast("Couldn't read that photo."); } };
   $("add").onsubmit = async e => {
     e.preventDefault(); const answer = $("ans").value.trim(); if (!answer || !B.pick || B.busy) return; B.busy = true;
-    try { await api("floor_items", { method: "POST", body: { category_id: cat.id, answer, image_url: B.pick, added_by: B.name || null, team: B.team } }); B.cands = null; B.pick = null; toast(`Added ${answer}`); await renderBuild(); document.getElementById("ans")?.focus(); }
+    // Pixabay links stop working after a while, so save our own copy of those pictures
+    let image_url = B.pick;
+    if (/^https:\/\/[^/]*pixabay\.com\//.test(image_url)) { try { image_url = await shrink(await (await fetch(image_url)).blob()); } catch { } }
+    try { await api("floor_items", { method: "POST", body: { category_id: cat.id, answer, image_url, added_by: B.name || null, team: B.team } }); B.cands = null; B.pick = null; toast(`Added ${answer}`); await renderBuild(); document.getElementById("ans")?.focus(); }
     catch { toast("Couldn't save. Try again."); } finally { B.busy = false; }
   };
   drawCands();
@@ -337,8 +340,8 @@ async function findImages(q, cat) {
   // Wikipedia and Commons have no safe search, so drop anything whose title looks explicit
   const NSFW = /pubic|pubes|\bnude|nudity|naked|genital|penis|phallus|vulva|vagina|labia|clitor|scrotum|testic|nipple|topless|erotic|porn|\bsex|nsfw|\banus\b|\banal\b|buttock|bikini wax|brazilian wax|masturbat|lingerie|fetish|circumcis|foreskin|condom|intimate|genitalia|\berect/i;
   const safe = t => !NSFW.test(t || "");
-  const get = async (u, ms = 6000) => { const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
-    try { const r = await fetch(u, { signal: c.signal }); return r.ok ? await r.json() : null; } catch { return null; } finally { clearTimeout(t); } };
+  const get = async (u, ms = 6000, headers) => { const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
+    try { const r = await fetch(u, { signal: c.signal, headers }); return r.ok ? await r.json() : null; } catch { return null; } finally { clearTimeout(t); } };
   const pages = o => Object.values(o?.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
   const wiki = (term, lang = "en") => get(`https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc(term)}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=960&pilicense=any`)
     .then(o => pages(o).filter(p => safe(p.title)).map(p => p.thumbnail?.source));
@@ -361,10 +364,13 @@ async function findImages(q, cat) {
   if (is(/drink|cocktail|bar|brazil|beverage/))
     special.push(get(`https://www.thecocktaildb.com/api/json/v1/1/search.php?s=${enc(q)}`).then(o => (o?.drinks || []).slice(0, 3).map(d => d.strDrinkThumb)));
   if (is(/brazil|brasil/)) special.push(wiki(q, "pt"));
-  const [wpCat, wp, ov, cmCat, cm, ...sp] = await Promise.all([
-    hint ? wiki(qt) : [], wiki(q), openverse(qc), hint ? commons(qt, 6) : [], commons(q, 12), ...special]);
-  // order: category-matched Wikipedia, specialist sources, plain Wikipedia, then the photo libraries
-  const out = [...wpCat, ...sp.flat(), ...wp, ...ov, ...cmCat, ...cm].filter(u => typeof u === "string" && /^https:\/\//.test(u));
+  // stock photos (Pexels + Pixabay) go through our Supabase function, which holds the API keys; searched by the answer alone
+  const stock = get(`${SB}/functions/v1/stock-images?q=${enc(q)}`, 6000, { apikey: KEY, Authorization: `Bearer ${KEY}` })
+    .then(o => { const a = o?.pexels || [], b = o?.pixabay || [], m = []; for (let i = 0; i < Math.max(a.length, b.length); i++) m.push(a[i], b[i]); return m; });
+  const [wpCat, wp, ov, cmCat, cm, st, ...sp] = await Promise.all([
+    hint ? wiki(qt) : [], wiki(q), openverse(qc), hint ? commons(qt, 6) : [], commons(q, 12), stock, ...special]);
+  // order: category-matched Wikipedia, specialist sources, stock photos, plain Wikipedia, then the open photo libraries
+  const out = [...wpCat, ...sp.flat(), ...st.slice(0, 10), ...wp, ...ov, ...cmCat, ...cm].filter(u => typeof u === "string" && /^https:\/\//.test(u));
   return [...new Set(out)].slice(0, 24);
 }
 function shrink(file) {
