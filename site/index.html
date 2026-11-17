@@ -330,17 +330,24 @@ function renderCat(cat) {
 // By category: iNaturalist (animals, plants, nature), TVMaze (TV shows, actors), TheMealDB / TheCocktailDB (food, drinks),
 // Portuguese Wikipedia (Brazil). The category name is added to the general searches so "Mercury" in Space finds the planet.
 async function findImages(q, cat) {
-  const hint = (cat || "").trim(), lc = hint.toLowerCase(), enc = encodeURIComponent, qc = hint ? `${q} ${hint}` : q;
+  const hint = (cat || "").replace(/[^\p{L}\p{N}\s'-]/gu, " ").replace(/\s+/g, " ").trim(), lc = hint.toLowerCase(), enc = encodeURIComponent;
+  const qc = hint ? `${q} ${hint}` : q;
+  // category-steered wiki searches require the answer in the title, so "hair spray" + "Grooming" can't drift to unrelated articles
+  const qt = hint ? `intitle:"${q.replace(/"/g, "")}" ${hint}` : q;
+  // Wikipedia and Commons have no safe search, so drop anything whose title looks explicit
+  const NSFW = /pubic|pubes|\bnude|nudity|naked|genital|penis|phallus|vulva|vagina|labia|clitor|scrotum|testic|nipple|topless|erotic|porn|\bsex|nsfw|\banus\b|\banal\b|buttock|bikini wax|brazilian wax|masturbat|lingerie|fetish|circumcis|foreskin|condom|intimate|genitalia|\berect/i;
+  const safe = t => !NSFW.test(t || "");
   const get = async (u, ms = 6000) => { const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
     try { const r = await fetch(u, { signal: c.signal }); return r.ok ? await r.json() : null; } catch { return null; } finally { clearTimeout(t); } };
   const pages = o => Object.values(o?.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
   const wiki = (term, lang = "en") => get(`https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc(term)}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=960&pilicense=any`)
-    .then(o => pages(o).map(p => p.thumbnail?.source));
-  const commons = (term, n) => get(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc(term)}&gsrnamespace=6&gsrlimit=${n}&prop=imageinfo&iiprop=url|mime&iiurlwidth=960`)
-    .then(o => pages(o).map(p => p.imageinfo?.[0]).filter(i => i && /image\/(jpeg|png|webp)/.test(i.mime)).map(i => i.thumburl || i.url));
+    .then(o => pages(o).filter(p => safe(p.title)).map(p => p.thumbnail?.source));
+  const commons = (term, n) => get(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc(term)}&gsrnamespace=6&gsrlimit=${n}&prop=imageinfo|categories&iiprop=url|mime&iiurlwidth=960&cllimit=20`)
+    .then(o => pages(o).filter(p => safe(p.title) && safe((p.categories || []).map(c => c.title).join(" ")))
+      .map(p => p.imageinfo?.[0]).filter(i => i && /image\/(jpeg|png|webp)/.test(i.mime)).map(i => i.thumburl || i.url));
   // Openverse throttles anonymous use after a burst, so it gets one search and 3.5s at most
   const openverse = term => get(`https://api.openverse.org/v1/images/?q=${enc(term)}&mature=false`, 3500)
-    .then(o => (o?.results || []).slice(0, 8).map(r => r.url));
+    .then(o => (o?.results || []).filter(r => safe(`${r.title} ${(r.tags || []).map(t => t.name).join(" ")}`)).slice(0, 8).map(r => r.url));
   const is = re => re.test(lc);
   const special = [];
   if (is(/animal|bird|wildlife|nature|plant|tree|flower|fish|insect|bug|reptile|mammal|mushroom|catskill|dog|cat\b|breed|pet|farm/))
@@ -355,7 +362,7 @@ async function findImages(q, cat) {
     special.push(get(`https://www.thecocktaildb.com/api/json/v1/1/search.php?s=${enc(q)}`).then(o => (o?.drinks || []).slice(0, 3).map(d => d.strDrinkThumb)));
   if (is(/brazil|brasil/)) special.push(wiki(q, "pt"));
   const [wpCat, wp, ov, cmCat, cm, ...sp] = await Promise.all([
-    hint ? wiki(qc) : [], wiki(q), openverse(qc), hint ? commons(qc, 6) : [], commons(q, 12), ...special]);
+    hint ? wiki(qt) : [], wiki(q), openverse(qc), hint ? commons(qt, 6) : [], commons(q, 12), ...special]);
   // order: category-matched Wikipedia, specialist sources, plain Wikipedia, then the photo libraries
   const out = [...wpCat, ...sp.flat(), ...wp, ...ov, ...cmCat, ...cm].filter(u => typeof u === "string" && /^https:\/\//.test(u));
   return [...new Set(out)].slice(0, 24);
