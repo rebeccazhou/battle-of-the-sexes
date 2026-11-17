@@ -77,7 +77,9 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 .cands button{padding:0;border-radius:8px;overflow:hidden;border:4px solid transparent;aspect-ratio:1}
 .cands button.sel{border-color:var(--fg)}
 .cands img{width:100%;height:100%;object-fit:cover;display:block;background:#fff}
-.chips button{border:0;background:var(--surface)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{border:0;background:rgba(255,255,255,.1);border-radius:999px;padding:8px 14px;font-size:var(--s)}
+#newcat details summary{padding:4px 0}
 .card button:not(.primary):not(.x):not(.sel){border-color:rgba(255,255,255,.6)}
 
 /* host: board */
@@ -148,7 +150,7 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 const SB = "https://ippikfbtknoddvumwgil.supabase.co";
 const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwcGlrZmJ0a25vZGR2dW13Z2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNjA4NjcsImV4cCI6MjA5MjkzNjg2N30.iFxRH9IwHSYeJbpeOS-3UKp2H89CGd-rhC1WX-UzAH0";
 const app = document.getElementById("app");
-const TEAM = { girls: "Girls", boys: "Boys", wild: "Wildcards" };
+const TEAM = { girls: "Team 🟣", boys: "Team 🟢", wild: "Wildcards" };
 const SYM = { girls: "🟣", boys: "🟢", wild: "★" };
 const other = t => (t === "girls" ? "boys" : "girls");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -261,19 +263,19 @@ async function renderBuild(reload = true) {
   if (location.hash !== "#build") return;
   const cat = B.cats.find(c => c.id === B.open);
   if (cat) return renderCat(cat);
-  const wild = false, foe = TEAM[other(B.team)].toLowerCase();
+  const wild = false, foe = TEAM[other(B.team)];
   const ideas = (IDEAS[B.team] || []).filter(([, n]) => !B.cats.some(c => c.name.toLowerCase() === n.toLowerCase()));
   const tabBtn = (k, label) => `<button data-tab="${k}" class="${B.tab === k ? "primary" : "ghost"}" style="flex:1">${label}</button>`;
   app.innerHTML = `<div class="wrap stack ${B.scope}">
     <div class="row"><span class="grow ${B.team}">Hi ${esc(B.name)} · <b class="teamtxt">Team ${SYM[B.team]}</b></span><button class="ghost" id="sw">Sign out</button></div>
-    <div><h1><span class="teamtxt">${wild ? "Wildcard" : TEAM[B.team]}</span> categories</h1>
-    <p class="muted" style="margin:6px 0 0">${wild ? `Wildcards are head-to-head duels, so each team adds half the pictures. Add about 10 to each. You only see your own team's half.` : `Build 6 categories the ${foe} won't be able to name. Aim for 15+ pictures in each. Anyone on your team can add.`}</p></div>
+    <div><h1>${TEAM[B.team]} categories</h1>
+    <p class="muted" style="margin:6px 0 0">${wild ? `Wildcards are head-to-head duels, so each team adds half the pictures. Add about 10 to each. You only see your own team's half.` : `Build 6 categories ${foe} won't be able to name. Aim for 15+ pictures in each. Anyone on your team can add.`}</p></div>
     ${wild ? "" : `<details class="prepbox"><summary>How building works</summary>${PREP("You're signed in, so you'll only see your own team's categories. The other team's pictures stay a surprise.")}</details>`}
     ${wild ? "" : `<div class="count ${B.cats.length >= 6 ? "ok" : ""}">${B.cats.length} of 6 categories</div>`}
     <div class="stack" style="gap:10px">${B.cats.map(c => { const n = B.items.filter(i => i.category_id === c.id).length, want = wild ? 10 : 15; return `<button class="catrow" data-open="${c.id}"><span class="em">${esc(c.emoji || "")}</span><span class="grow" style="flex:1;min-width:0"><b>${esc(c.name)}</b></span><span class="count ${n >= want ? "ok" : ""}">${n}${wild ? " from your team" : " pictures"}</span></button>`; }).join("") || `<p class="muted">${wild ? "No wildcard categories yet." : "No categories yet. Add the first one below."}</p>`}</div>
     ${wild ? "" : `<form class="card stack" id="newcat"><h3>New category</h3>
-      ${ideas.length ? `<details><summary>Need ideas? See categories from The Floor</summary><div class="chips" style="margin-top:10px">${ideas.map(([e, n]) => `<button type="button" data-idea="${esc(e)}|${esc(n)}">${esc(n)}</button>`).join("")}</div></details>` : ""}
       <div class="row"><input type="text" id="cemoji" maxlength="4" placeholder="🏈" style="width:72px;text-align:center" aria-label="Emoji"><div class="grow"><input type="text" id="cname" maxlength="60" placeholder="Category name" aria-label="Category name" required></div></div>
+      ${ideas.length ? `<details><summary>Need ideas? See categories from The Floor</summary><div class="chips" style="margin-top:10px">${ideas.map(([e, n]) => `<button type="button" data-idea="${esc(e)}|${esc(n)}">${esc(n)}</button>`).join("")}</div></details>` : ""}
       <button class="primary">Add category</button></form>`}</div>`;
   document.getElementById("sw").onclick = () => { B.me = null; store.set("floor_me", null); renderBuild(); };
   app.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { B.tab = b.dataset.tab; B.open = null; renderBuild(); });
@@ -409,7 +411,7 @@ function renderBoard() {
     const tag = o ? `${SYM[o.owner]} ${o.player ? o.player + " " : ""}+${o.pts}` : isSys ? "Round 1" : `Round 2 · ${SYM[c.team]} list`;
     return `<button class="tile ${c.team} ${o ? "owned" : open ? "open" : "locked"}" style="${o ? `--owner:var(--${o.owner})` : isSys ? `--tint:${emojiTint(c.emoji)}` : ""}" data-tile="${c.id}" title="Shift-click to correct the score"><span class="em">${esc(c.emoji || "")}</span><span class="nm">${esc(c.name)}</span><span class="tag">${esc(tag)}</span></button>`;
   };
-  const upTxt = done ? (gs === bs ? "Tied! Play the tiebreak duel" : `${TEAM[gs > bs ? "girls" : "boys"]} win, ${Math.max(gs, bs)} to ${Math.min(gs, bs)}!`) : any ? `Round ${r1 ? 1 : 2}: ${SYM[G.up]} ${cur ? esc(cur.name) : ""} is up` : "No categories yet";
+  const upTxt = done ? (gs === bs ? "Tied! Play the tiebreak duel" : `${TEAM[gs > bs ? "girls" : "boys"]} wins, ${Math.max(gs, bs)} to ${Math.min(gs, bs)}!`) : any ? `Round ${r1 ? 1 : 2}: ${SYM[G.up]} ${cur ? esc(cur.name) : ""} is up` : "No categories yet";
   const who = cur ? esc(cur.name) : G.up === "girls" ? "she" : "he";
   const sub = done || !any ? "" : (r1 ? `${cur ? who : G.up === "girls" ? "She" : "He"} picks any everyday category left on the board` : `${TEAM[other(G.up)]}, pick which of your categories ${who} faces`) + (nxt ? ` · Next: ${SYM[nxt.team]} ${esc(nxt.name)}` : "");
   app.innerHTML = `<div class="stage">
@@ -552,10 +554,10 @@ function show() {
   if (T.phase === "ready") {
     box.innerHTML = T.kind === "solo"
       ? `<div class="msg"><h2>Name as many as you can</h2><p>${T.practice ? "Tap Correct when you get one, Pass when you're stuck" : "Every one is a point. Say “pass” to skip"} (a pass costs ${G.cfg.pass}s).<br>Tap here to start.</p></div>`
-      : `<div class="msg"><h2>Tiebreak duel</h2><p>One girl, one guy. Your clock only runs on your turn. Get it right to pass the turn.<br><b>${SYM[T.active]} ${TEAM[T.active]} go first.</b> Tap here to start.</p></div>`;
+      : `<div class="msg"><h2>Tiebreak duel</h2><p>One player from each team. Your clock only runs on your turn. Get it right to pass the turn.<br><b>${TEAM[T.active]} goes first.</b> Tap here to start.</p></div>`;
     setAnswer("Press Space to start");
   } else if (T.phase === "done") {
-    box.innerHTML = `<div class="msg ${T.winner}"><h2>${T.winner && SYM[T.winner] ? SYM[T.winner] + " " : ""}${esc(T.headline)}</h2><p>${esc(T.detail)}<br>Tap here to continue.</p></div>`; setAnswer("");
+    box.innerHTML = `<div class="msg ${T.winner}"><h2>${T.winner && SYM[T.winner] && !T.headline.includes(SYM[T.winner]) ? SYM[T.winner] + " " : ""}${esc(T.headline)}</h2><p>${esc(T.detail)}<br>Tap here to continue.</p></div>`; setAnswer("");
   } else {
     box.innerHTML = `<img src="${esc(it.image_url)}" alt="">` + (T.phase === "flash" || T.phase === "pass" ? `<div class="ans">${esc(it.answer)}</div>` : ""); setAnswer(it.answer);
   }
@@ -584,7 +586,7 @@ function tick(dt) {
 function endSolo(why) {
   if (!T.practice) { G.own[T.cat.id] = { owner: T.team, pts: T.correct, player: T.player || undefined }; G.up = other(T.team); saveG(); }
   T.phase = "done"; T.winner = T.team;
-  T.headline = T.practice ? `${T.correct} named` : `${T.correct} ${T.correct === 1 ? "point" : "points"} for ${T.player || "the " + TEAM[T.team].toLowerCase()}`;
+  T.headline = T.practice ? `${T.correct} named` : `${T.correct} ${T.correct === 1 ? "point" : "points"} for ${T.player || TEAM[T.team]}`;
   T.detail = T.practice ? `${why}. That was just practice, nothing is scored.` : `${why}.`; [660, 880, 1100].forEach((f, i) => setTimeout(() => beep(f, .18), i * 130)); show();
 }
 /* ----- wildcard duel ----- */
@@ -603,7 +605,7 @@ function startDuel(cat) {
 }
 function endDuel(winner, why) {
   G.own[T.cat.id] = { owner: winner, pts: 1 }; saveG();
-  T.phase = "done"; T.winner = winner; T.headline = `${TEAM[winner]} win the tiebreak, +1`; T.detail = `${why} for the ${TEAM[other(winner)].toLowerCase()}.`;
+  T.phase = "done"; T.winner = winner; T.headline = `${TEAM[winner]} wins the tiebreak, +1`; T.detail = `${why} for ${TEAM[other(winner)]}.`;
   [660, 880, 1100].forEach((f, i) => setTimeout(() => beep(f, .18), i * 130)); show();
 }
 /* ----- keys ----- */
