@@ -10,6 +10,7 @@ Live at https://battle-of-the-sexes.vercel.app
   - Home page with the rules, a practice round and the category list
   - Category builder with sign-in and an image finder (Wikipedia and Wikimedia Commons)
   - Host screen for the projector at `/#host` (not linked from the home page), and a judge view for a phone at `/#judge`
+  - Sandbox host screen at `/#sandbox`, which plays separate test categories and keeps its own scores
 - Data lives in Supabase (tables prefixed `floor_`). `schema.sql` recreates them.
 - Hosting is Vercel, project `battle-of-the-sexes` in the personal account.
 
