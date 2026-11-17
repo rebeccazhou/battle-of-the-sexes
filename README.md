@@ -2,7 +2,7 @@
 
 A picture-naming party game for the projector, girls against boys. Thanksgiving 2026 Edition.
 
-Live at https://floor-girls-vs-boys.vercel.app
+Live at https://battle-of-the-sexes.vercel.app
 
 ## How it's built
 
@@ -11,7 +11,7 @@ Live at https://floor-girls-vs-boys.vercel.app
   - Category builder with sign-in and an image finder (Wikipedia and Wikimedia Commons)
   - Host screen for the projector, and a judge view for a phone at `/#judge`
 - Data lives in Supabase (tables prefixed `floor_`). `schema.sql` recreates them.
-- Hosting is Vercel, project `floor-girls-vs-boys`.
+- Hosting is Vercel, project `battle-of-the-sexes` in the personal account.
 
 ## Run it locally
 
