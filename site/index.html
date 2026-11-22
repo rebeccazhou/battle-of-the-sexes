@@ -40,7 +40,7 @@ a{color:inherit}
 /* home */
 .home{max-width:1300px;margin:0 auto;padding:44px max(16px,env(safe-area-inset-right,0px)) 80px max(16px,env(safe-area-inset-left,0px));display:grid;column-gap:80px;row-gap:24px;align-items:start;
   grid-template-columns:minmax(0,595fr) minmax(0,625fr);
-  grid-template-areas:"title actions" "intro cats" "play cats" "win cats" ". cats";grid-template-rows:auto auto auto auto 1fr}
+  grid-template-areas:"title actions" "intro cats" "play cats" "win cats" "tools cats";grid-template-rows:auto auto auto auto 1fr}
 .h-title{grid-area:title;font-size:30px;line-height:1.13}
 .h-intro{grid-area:intro;margin:0;font-size:24px;line-height:1.29}
 .h-actions{grid-area:actions;display:flex;flex-wrap:wrap;gap:10px}
@@ -48,7 +48,15 @@ a{color:inherit}
 .h-win{grid-area:win;margin:24px 0 0;font-size:24px;line-height:1.29}
 .h-cats{grid-area:cats;max-width:544px;width:100%;display:flex;flex-direction:column;gap:8px}
 .h-cats h3,.h-cats p{text-align:center;margin:0}.h-cats h3{margin-top:24px}.h-cats .catgrid+p{margin-top:8px}
-@media (max-width:900px){.home{grid-template-columns:minmax(0,1fr);grid-template-areas:"title" "intro" "actions" "play" "win" "cats";grid-template-rows:none}.h-cats{max-width:none}}
+@media (max-width:900px){.home{grid-template-columns:minmax(0,1fr);grid-template-areas:"title" "intro" "actions" "play" "win" "cats" "tools";grid-template-rows:none}.h-cats{max-width:none}}
+.h-tools{grid-area:tools;margin-top:24px}
+.h-tools summary{cursor:pointer;text-decoration:underline;list-style:none;display:inline-block}
+.h-tools summary::-webkit-details-marker{display:none}
+.h-tools .toolbox{margin-top:12px;background:var(--surface);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.toollist{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.toollist a{display:block;background:var(--well);border-radius:8px;padding:12px 14px;text-decoration:none}
+.toollist a b{display:block}
+.lockscreen{max-width:420px;margin:15vh auto 0;padding:0 16px;display:flex;flex-direction:column;gap:12px}
 .cta{display:inline-block;background:var(--fg);color:#000;text-decoration:none;border-radius:8px;padding:14px 22px;font-weight:700}
 .cta2{display:inline-block;border:1px solid var(--fg);border-radius:8px;padding:14px 22px;text-decoration:none}
 .catgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -192,7 +200,9 @@ let stopLoop = null;
 function route() {
   if (stopLoop) { stopLoop(); stopLoop = null; }
   const h = location.hash.replace("#", "");
-  if (h === "build") renderBuild(); else if (h === "host" || h === "sandbox") hostInit(); else if (h === "practice") practiceInit(); else if (h === "judge" || h === "sandbox-judge") renderJudge(h === "sandbox-judge"); else renderHome();
+  const locked = ["host", "sandbox", "judge", "sandbox-judge"].includes(h) && !hostUnlocked();
+  if (locked) renderLock(route);
+  else if (h === "build") renderBuild(); else if (h === "host" || h === "sandbox") hostInit(); else if (h === "practice") practiceInit(); else if (h === "judge" || h === "sandbox-judge") renderJudge(h === "sandbox-judge"); else renderHome();
 }
 window.addEventListener("hashchange", route);
 let resizeT; window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (G && !T && typeof isHost === "function" && isHost()) renderBoard(); }, 150); });
@@ -210,9 +220,43 @@ function renderHome() {
       <p>⌛ When the clock reaches zero the turn is over, and the points are added to the team's total on the scoreboard.</p>
       <p>✌️ Everyone plays twice, once in each round, so choose strategically. Round 1 uses everyday categories that are already loaded into the game. On your team's turn, a random category is revealed and your team picks who plays it. Round 2 uses the categories the teams built. On your team's turn, the other team chooses which of their categories you have to face, and then your team picks who plays it. A player can only go up once per round, and each category can only be played once.</p></div>
     <p class="h-win">🏅 The team with the most points after each player plays 2 rounds, 24 rounds in total, wins. If the score is tied, one player from each team plays a head-to-head tiebreak.</p>
+    <details class="h-tools" id="hosttools"><summary>Host tools 🔒</summary><div class="toolbox" id="toolbox"></div></details>
     <div class="h-cats" id="homecats"><h3>The categories</h3><p>Round 1: Game created everyday categories.</p><div class="catgrid"></div><p>Round 2: Teams created bespoke categories.</p><div class="catgrid"></div></div>
   </div>`;
   loadHomeCats();
+  const tb = document.getElementById("toolbox");
+  const draw = () => { tb.innerHTML = hostUnlocked() ? `<div class="toollist">${HOST_TOOLS.map(([h, n, d]) => `<a href="#${h}"><b>${n}</b><span class="muted">${d}</span></a>`).join("")}</div><div><a href="#" id="relock">Lock these again</a></div>`
+    : lockForm("Enter the host password to see the projector, judges' and sandbox links."); bindLock(tb, draw);
+    document.getElementById("relock")?.addEventListener("click", e => { e.preventDefault(); store.set("floor_host_ok", false); draw(); }); };
+  draw();
+}
+/* ---------- host password ---------- */
+// The game screens open only after the host password. Only a SHA-256 hash of it is in this file. It keeps guests from
+// starting the game by accident; it isn't real security, since the categories themselves are readable through the API.
+const HOST_HASH = "92925488b28ab12584ac8fcaa8a27a0f497b2c62940c8f4fbc8ef19ebc87c43e";
+const HOST_TOOLS = [
+  ["host", "Projector", "The real game, on the laptop connected to the projector"],
+  ["judge", "Judges' laptop", "Answers and Correct / Pass buttons for the real game"],
+  ["sandbox", "Sandbox projector", "Test game with test categories only"],
+  ["sandbox-judge", "Sandbox judges' laptop", "Judges' screen for the test game"],
+  ["practice", "Practice round", "30 seconds of Farm Animals, nothing scored"],
+];
+const hostUnlocked = () => store.get("floor_host_ok", false) === true;
+async function checkHostPassword(pw) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw.trim()));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("") === HOST_HASH;
+}
+const lockForm = msg => `<form class="stack" data-lock style="gap:10px"><p style="margin:0">${msg}</p><div class="row"><div class="grow"><input type="password" inputmode="numeric" autocomplete="off" placeholder="Host password" aria-label="Host password" data-pw></div><button class="primary">Unlock</button></div><p class="muted" data-pwmsg style="margin:0" hidden>That's not the password.</p></form>`;
+function bindLock(root, onOk) {
+  const f = root.querySelector("[data-lock]"); if (!f) return;
+  f.onsubmit = async e => { e.preventDefault();
+    if (await checkHostPassword(f.querySelector("[data-pw]").value)) { store.set("floor_host_ok", true); onOk(); }
+    else { f.querySelector("[data-pwmsg]").hidden = false; f.querySelector("[data-pw]").select(); } };
+}
+// full-screen lock for the game screens when someone opens their link directly
+function renderLock(then) {
+  app.innerHTML = `<div class="lockscreen"><h2>Host only</h2>${lockForm("This screen runs the game. Enter the host password to open it.")}<a href="#">&larr; Home</a></div>`;
+  bindLock(app, then); app.querySelector("[data-pw]")?.focus();
 }
 // tint a tile with the colour of its emoji: draw it small and average its pixels, weighting colourful ones more
 const tintCache = {};
