@@ -336,14 +336,27 @@ function renderCat(cat) {
     if (B.cands === "loading") { box.innerHTML = `<p class="muted">Searching…</p>`; return; }
     if (!B.cands) { box.innerHTML = ""; return; }
     if (!B.cands.length) { box.innerHTML = `<p class="muted">No pictures found. Try different search words, upload a photo, or paste a link.</p>`; return; }
-    box.innerHTML = `<p class="muted" style="margin:0 0 8px">Tap the best one. Avoid pictures with the name written on them.</p><div class="cands">${B.cands.map((u, i) => `<button type="button" data-c="${i}" class="${B.pick === u ? "sel" : ""}"><img src="${esc(u)}" alt="Option ${i + 1}" loading="lazy"></button>`).join("")}</div>`;
-    box.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { setPick(B.cands[+b.dataset.c]); $("url").value = ""; drawCands(); });
+    const more = B.more === "loading" ? `<button type="button" disabled>Finding more…</button>` : B.more === false ? `<span class="muted">No more pictures found. Try different search words.</span>` : B.q ? `<button type="button" id="more">Show more pictures</button>` : "";
+    box.innerHTML = `<p class="muted" style="margin:0 0 8px">Tap the best one. Avoid pictures with the name written on them.</p><div class="cands">${B.cands.map((u, i) => `<button type="button" data-c="${i}" class="${B.pick === u ? "sel" : ""}"><img src="${esc(u)}" alt="Option ${i + 1}" loading="lazy"></button>`).join("")}</div>${more ? `<div style="margin-top:12px;text-align:center">${more}</div>` : ""}`;
+    if ($("more")) $("more").onclick = async () => {
+      B.more = "loading"; drawCands(); B.page = (B.page || 1) + 1; const q0 = B.q;
+      const found = await findImages(q0, cat.name, B.page);
+      if (B.q !== q0 || !Array.isArray(B.cands)) return;   // a new search started meanwhile
+      const add = found.filter(u => !B.cands.includes(u)); B.cands = [...B.cands, ...add];
+      B.more = add.length && B.page < 10 ? true : false; drawCands();
+    };
+    box.querySelectorAll("[data-c]").forEach(b => {
+      const im = b.querySelector("img"), u = im.getAttribute("src");
+      b.onclick = () => { setPick(u); $("url").value = ""; drawCands(); };
+      // some sites refuse to show their pictures elsewhere: drop those instead of leaving a blank square
+      im.onerror = () => { if (Array.isArray(B.cands)) B.cands = B.cands.filter(x => x !== u); if (B.pick === u) setPick(null); b.remove(); };
+    });
   };
-  const find = async () => { const q = ($("q").value.trim() || $("ans").value.trim()); if (!q) { $("ans").focus(); return; } B.cands = "loading"; setPick(null); drawCands(); B.cands = await findImages(q, cat.name); drawCands(); };
+  const find = async () => { const q = ($("q").value.trim() || $("ans").value.trim()); if (!q) { $("ans").focus(); return; } B.cands = "loading"; B.q = q; B.page = 1; B.more = true; setPick(null); drawCands(); B.cands = await findImages(q, cat.name); drawCands(); };
   $("find").onclick = find;
   $("ans").onkeydown = $("q").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); find(); } };
   $("url").oninput = () => { const u = $("url").value.trim(); setPick(/^https?:\/\/\S+$/.test(u) ? u : null); drawCands(); };
-  $("file").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const u = await shrink(f); B.cands = [u]; setPick(u); drawCands(); } catch { toast("Couldn't read that photo."); } };
+  $("file").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const u = await shrink(f); B.cands = [u]; B.q = null; setPick(u); drawCands(); } catch { toast("Couldn't read that photo."); } };
   $("add").onsubmit = async e => {
     e.preventDefault(); const answer = $("ans").value.trim(); if (!answer || !B.pick || B.busy) return; B.busy = true;
     // Pixabay links expire and Google results live on random websites, so save our own copy when the site allows it
@@ -358,7 +371,8 @@ function renderCat(cat) {
 // Always: Wikipedia article pictures, Openverse (Flickr and other open photo sites), Wikimedia Commons.
 // By category: iNaturalist (animals, plants, nature), TVMaze (TV shows, actors), TheMealDB / TheCocktailDB (food, drinks),
 // Portuguese Wikipedia (Brazil). The category name is added to the general searches so "Mercury" in Space finds the planet.
-async function findImages(q, cat) {
+// page 1 searches every source; "Show more pictures" asks for page 2, 3… from the sources that have more pages
+async function findImages(q, cat, page = 1) {
   const hint = (cat || "").replace(/[^\p{L}\p{N}\s'-]/gu, " ").replace(/\s+/g, " ").trim(), lc = hint.toLowerCase(), enc = encodeURIComponent;
   const qc = hint ? `${q} ${hint}` : q;
   // category-steered wiki searches require the answer in the title, so "hair spray" + "Grooming" can't drift to unrelated articles
@@ -371,11 +385,11 @@ async function findImages(q, cat) {
   const pages = o => Object.values(o?.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
   const wiki = (term, lang = "en") => get(`https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc(term)}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=960&pilicense=any`)
     .then(o => pages(o).filter(p => safe(p.title)).map(p => p.thumbnail?.source));
-  const commons = (term, n) => get(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc(term)}&gsrnamespace=6&gsrlimit=${n}&prop=imageinfo|categories&iiprop=url|mime&iiurlwidth=960&cllimit=20`)
+  const commons = (term, n, off = 0) => get(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${enc(term)}&gsrnamespace=6&gsrlimit=${n}&gsroffset=${off}&prop=imageinfo|categories&iiprop=url|mime&iiurlwidth=960&cllimit=20`)
     .then(o => pages(o).filter(p => safe(p.title) && safe((p.categories || []).map(c => c.title).join(" ")))
       .map(p => p.imageinfo?.[0]).filter(i => i && /image\/(jpeg|png|webp)/.test(i.mime)).map(i => i.thumburl || i.url));
   // Openverse throttles anonymous use after a burst, so it gets one search and 3.5s at most
-  const openverse = term => get(`https://api.openverse.org/v1/images/?q=${enc(term)}&mature=false`, 3500)
+  const openverse = (term, p = 1) => get(`https://api.openverse.org/v1/images/?q=${enc(term)}&mature=false&page=${p}`, 3500)
     .then(o => (o?.results || []).filter(r => safe(`${r.title} ${(r.tags || []).map(t => t.name).join(" ")}`)).slice(0, 8).map(r => r.url));
   const is = re => re.test(lc);
   const special = [];
@@ -391,8 +405,12 @@ async function findImages(q, cat) {
     special.push(get(`https://www.thecocktaildb.com/api/json/v1/1/search.php?s=${enc(q)}`).then(o => (o?.drinks || []).slice(0, 3).map(d => d.strDrinkThumb)));
   if (is(/brazil|brasil/)) special.push(wiki(q, "pt"));
   // Google Images (via Serper), Pexels and Pixabay go through our Supabase function, which holds the API keys
-  const stock = get(`${SB}/functions/v1/stock-images?q=${enc(q)}&c=${enc(hint)}`, 6000, { apikey: KEY, Authorization: `Bearer ${KEY}` })
+  const stock = get(`${SB}/functions/v1/stock-images?q=${enc(q)}&c=${enc(hint)}&p=${page}`, 6000, { apikey: KEY, Authorization: `Bearer ${KEY}` })
     .then(o => { const a = o?.pexels || [], b = o?.pixabay || [], m = []; for (let i = 0; i < Math.max(a.length, b.length); i++) m.push(a[i], b[i]); return { google: o?.google || [], stock: m }; });
+  if (page > 1) {
+    const [st, ov, cm] = await Promise.all([stock, openverse(qc, page), commons(q, 12, (page - 1) * 12)]);
+    return [...new Set([...st.google, ...st.stock, ...ov, ...cm].filter(u => typeof u === "string" && /^https:\/\//.test(u)))];
+  }
   const [wpCat, wp, ov, cmCat, cm, st, ...sp] = await Promise.all([
     hint ? wiki(qt) : [], wiki(q), openverse(qc), hint ? commons(qt, 6) : [], commons(q, 12), stock, ...special]);
   // order: Google, category-matched Wikipedia, specialist sources, stock photos, plain Wikipedia, then the open photo libraries

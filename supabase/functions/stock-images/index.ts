@@ -1,6 +1,6 @@
 // Picture search for the image finder: Google Images (via Serper.dev), Pexels and Pixabay.
 // The API keys live in Supabase Edge Function secrets (SERPER_API_KEY, PEXELS_API_KEY, PIXABAY_API_KEY), never in the web page.
-// GET ?q=hair%20spray&c=Beauty%20Grooming  ->  { google: [url...], pexels: [url...], pixabay: [url...] }   (a missing key just returns an empty list)
+// GET ?q=hair%20spray&c=Beauty%20Grooming&p=1  ->  { google: [url...], pexels: [url...], pixabay: [url...] }   (a missing key just returns an empty list)
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type",
@@ -18,23 +18,25 @@ async function getJson(url: string, headers: Record<string, string> = {}, body?:
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const sp = new URL(req.url).searchParams;
-  const q = (sp.get("q") || "").trim().slice(0, 100), c = (sp.get("c") || "").trim().slice(0, 60);
+  const q = (sp.get("q") || "").trim().slice(0, 100), c = (sp.get("c") || "").trim().slice(0, 60), page = Math.min(10, Math.max(1, parseInt(sp.get("p") || "1", 10) || 1));
   if (!q) return Response.json({ google: [], pexels: [], pixabay: [] }, { headers: CORS });
   const serperKey = Deno.env.get("SERPER_API_KEY"), pexKey = Deno.env.get("PEXELS_API_KEY"), pixKey = Deno.env.get("PIXABAY_API_KEY");
   // Pixabay matches words loosely ("hair spray" finds spray-paint graffiti), so also search with the category words
   // and put those first; Pixabay requires every word, so a category search that finds nothing just falls back to the plain one
-  const pixabay = (term: string) => pixKey ? getJson(`https://pixabay.com/api/?key=${pixKey}&q=${encodeURIComponent(term)}&image_type=photo&safesearch=true&per_page=8`) : null;
+  const pixabay = (term: string) => pixKey ? getJson(`https://pixabay.com/api/?key=${pixKey}&q=${encodeURIComponent(term)}&image_type=photo&safesearch=true&per_page=8&page=${page}`) : null;
   const [goo, pex, pixCat, pix] = await Promise.all([
     // Google gets the category too (it understands "Mercury Space"), with safe search on
-    serperKey ? getJson("https://google.serper.dev/images", { "X-API-KEY": serperKey }, { q: c ? `${q} ${c}` : q, num: 20, safe: "active" }) : null,
-    pexKey ? getJson(`https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=8`, { Authorization: pexKey }) : null,
+    serperKey ? getJson("https://google.serper.dev/images", { "X-API-KEY": serperKey }, { q: c ? `${q} ${c}` : q, num: 20, page, safe: "active" }) : null,
+    pexKey ? getJson(`https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=8&page=${page}`, { Authorization: pexKey }) : null,
     c ? pixabay(`${q} ${c}`.slice(0, 100)) : null,
     pixabay(q),
   ]);
   const pixUrls = [...(pixCat?.hits || []), ...(pix?.hits || [])].map((h: any) => h.webformatURL).filter(Boolean);
   return Response.json({
-    google: (goo?.images || []).filter((i: any) => !NSFW.test(`${i.title} ${i.source} ${i.domain}`) && /^https:\/\//.test(i.imageUrl || ""))
-      .map((i: any) => i.imageUrl).slice(0, 12),
+    google: (goo?.images || []).filter((i: any) => !NSFW.test(`${i.title} ${i.source} ${i.domain}`) && /^https:\/\//.test(i.imageUrl || "")
+      // social sites block their images from showing on other sites
+      && !/\/\/[^/]*(tiktok\.com|instagram\.com|fbsbx\.com|facebook\.com|fbcdn\.net)\//.test(i.imageUrl))
+      .map((i: any) => i.imageUrl).slice(0, 20),
     pexels: (pex?.photos || []).map((p: any) => p.src?.large).filter(Boolean),
     pixabay: [...new Set(pixUrls)].slice(0, 10),
   }, { headers: { ...CORS, "Cache-Control": "public, max-age=3600" } });
