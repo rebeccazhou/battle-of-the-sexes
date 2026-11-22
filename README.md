@@ -2,7 +2,7 @@
 
 A picture-naming party game for the projector, girls against boys. Thanksgiving 2026 Edition.
 
-Live at https://battle-of-the-sexes.vercel.app
+Live at https://better-half-showdown.vercel.app (the old battle-of-the-sexes.vercel.app address still works)
 
 ## How it's built
 
