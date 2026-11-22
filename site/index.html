@@ -125,6 +125,12 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 .jg-label{margin:0;font-size:var(--pm)}
 .jg-ans{font-size:clamp(40px,8vw,140px);font-weight:700;line-height:1.05;overflow-wrap:anywhere}
 .jg-ans.sm{font-size:var(--pl)}
+.jg-main.split{display:grid;grid-template-columns:1fr 1fr;align-items:center}
+.jg-pic{height:100%;min-height:0;display:flex;align-items:center;justify-content:center}
+.jg-pic img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
+.jg-main.split .jg-ans{font-size:clamp(32px,5vw,96px)}
+.jg-text{display:flex;flex-direction:column;align-items:center;gap:2vh;min-width:0}
+.jg-foot .ok{color:var(--boys)} .jg-foot .bad{color:#ff8a7a}
 .jg-keys{display:grid;grid-template-columns:1fr 1fr;gap:1.2vw;height:30vh}
 .jg-keys:empty{display:none}
 .jg-keys button{font-size:var(--pl);border-radius:8px}
@@ -216,13 +222,13 @@ function emojiTint(emoji) {
   return tintCache[emoji];
 }
 async function loadHomeCats() {
-  let cats, items;
-  try { cats = await api("floor_categories?select=id,team,name,emoji&order=created_at"); items = await api("floor_items?select=category_id"); } catch { return; }
+  let cats;
+  try { cats = await api("floor_categories?select=id,team,name,emoji&order=created_at"); } catch { return; }
   const box = document.getElementById("homecats"); if (!box) return;
-  const n = {}; items.forEach(i => n[i.category_id] = (n[i.category_id] || 0) + 1);
   const sys = cats.filter(c => c.team === "wild").map(c => `<div class="catchip" style="--tint:${emojiTint(c.emoji)}"><span>${esc(c.emoji || "")}</span><span>${esc(c.name)}</span></div>`).join("");
-  const team = t => { const ready = cats.filter(c => c.team === t && (n[c.id] || 0) >= 15).slice(0, 6), dot = t === "girls" ? "🟣" : "🟢";
-    return Array.from({ length: 6 }, (_, k) => `<div class="catchip ${t}"><span>${dot}</span><span>${ready[k] ? esc(ready[k].name) : "[Category]"}</span></div>`).join(""); };
+  // team categories show as soon as a team creates them; empty slots stay as [Category] until the team has 6
+  const team = t => { const made = cats.filter(c => c.team === t), dot = t === "girls" ? "🟣" : "🟢";
+    return Array.from({ length: Math.max(6, made.length) }, (_, k) => `<div class="catchip ${t}"><span>${dot}</span><span>${made[k] ? `${esc(made[k].emoji || "")} ${esc(made[k].name)}` : "[Category]"}</span></div>`).join(""); };
   box.innerHTML = `<h3>The categories</h3><p>Round 1: Game created everyday categories.</p><div class="catgrid">${sys}</div>
     <p>Round 2: Teams created bespoke categories.</p><div class="catgrid">${team("girls")}${team("boys")}</div>`;
 }
@@ -439,6 +445,7 @@ async function hostInit() {
   saveG();
   LIVE.onReady = () => pushState(true);
   liveChannel(isSandbox() ? "floor-sandbox" : "floor-game");
+  clearInterval(LIVE.beat); LIVE.beat = setInterval(() => { if (isHost()) pushState(true); }, 3000);
   T = null; renderBoard();
 }
 const tilesOf = t => G.cats.filter(c => c.team === t);
@@ -547,7 +554,7 @@ async function practiceInit() {
   } catch { app.innerHTML = `<div class="wrap stack"><p>The practice round isn't ready yet.</p><a href="#">&larr; Home</a></div>`; }
 }
 /* ---------- live link between the projector and the judges' laptop (Supabase Realtime broadcast) ---------- */
-const LIVE = { client: null, chan: null, name: null, ready: false, onReady: null, last: "" };
+const LIVE = { client: null, chan: null, name: null, ready: false, onReady: null, last: "", beat: null };
 function liveChannel(name) {
   if (LIVE.name === name && LIVE.chan) return LIVE.chan;
   if (!window.supabase) return null;
@@ -569,7 +576,7 @@ function pushState(force) {
   if (T) {
     const it = T.items[T.i], showing = T.phase === "play" || T.phase === "flash" || T.phase === "pass";
     st = { view: T.kind, phase: T.phase, cat: T.cat.name, emoji: T.cat.emoji || "", team: T.kind === "duel" ? T.active : T.team, player: T.player || "",
-      answer: showing && it ? it.answer : "", time: Math.max(0, Math.ceil(T.kind === "duel" ? T.time[T.active] : T.time)), correct: T.correct || 0, practice: !!T.practice, headline: T.phase === "done" ? T.headline : "" };
+      answer: showing && it ? it.answer : "", img: showing && it ? it.id || "" : "", next: T.items[T.i + 1]?.id || "", time: Math.max(0, Math.ceil(T.kind === "duel" ? T.time[T.active] : T.time)), correct: T.correct || 0, practice: !!T.practice, headline: T.phase === "done" ? T.headline : "" };
   } else {
     const { r, up, pc, phase } = boardInfo(), h = huddleLeft();
     st = { view: "board", phase, round: r, team: up, cat: pc ? pc.name : "", emoji: pc ? pc.emoji || "" : "",
@@ -591,20 +598,28 @@ function onRemoteCmd(p) {
   else if (p.k === "continue" && T.phase === "done") press(" ");
 }
 /* ---------- judges' laptop ---------- */
-const JUDGE = { state: null };
+const JUDGE = { state: null, at: 0, imgs: {}, shown: "" };
+// look up a picture by its id (cached); the projector only sends ids over the live link
+function judgeImg(id) {
+  if (!id) return Promise.resolve("");
+  return JUDGE.imgs[id] = JUDGE.imgs[id] || api(`floor_items?id=eq.${id}&select=image_url`).then(r => {
+    const u = r?.[0]?.image_url || ""; if (u) { const im = new Image(); im.src = u; } return u; }).catch(() => { delete JUDGE.imgs[id]; return ""; });
+}
 const isJudge = () => /^#(sandbox-)?judge$/.test(location.hash);
 function renderJudge(sandbox) {
   JUDGE.state = null;
   app.innerHTML = `<div class="jg"><div class="jg-top"><div id="jwho"></div><h2 id="jcat"></h2><div class="clock" id="jclock"></div></div>
-    <div class="jg-main" id="jmain"><p class="jg-label">Connecting to the projector…</p><p>Open ${esc(location.host)}/#${sandbox ? "sandbox" : "host"} on the projector laptop.</p></div>
+    <div class="jg-main" id="jmain"><div class="jg-pic" id="jpic" hidden><img id="jimg" alt=""></div><div class="jg-text" id="jtext"><p class="jg-label">Connecting to the projector…</p><p>Open ${esc(location.host)}/#${sandbox ? "sandbox" : "host"} on the projector laptop.</p></div></div>
     <div class="jg-keys" id="jkeys"></div>
-    <div class="jg-foot"><span id="jcount"></span><span>${sandbox ? "Sandbox judges' screen" : "Judges' screen"}. Keep it turned away from the player.</span></div></div>`;
+    <div class="jg-foot"><span id="jcount"></span><span id="jconn"></span><span>${sandbox ? "Sandbox judges' screen" : "Judges' screen"}. Keep it turned away from the player.</span></div></div>`;
   LIVE.onReady = () => liveSend("hello", {});
   liveChannel(sandbox ? "floor-sandbox" : "floor-game");
   if (LIVE.ready) liveSend("hello", {});
-  const id = setInterval(() => { if (!JUDGE.state) liveSend("hello", {}); }, 2000); stopLoop = () => clearInterval(id);
+  const conn = () => { const el = document.getElementById("jconn"); if (!el) return; const ok = JUDGE.at && Date.now() - JUDGE.at < 8000;
+    el.innerHTML = `<span class="${ok ? "ok" : "bad"}">●</span> ` + (ok ? "Connected to the projector" : JUDGE.at ? "Lost the projector. Check both laptops are online and on the matching links" : "Waiting for the projector"); };
+  const id = setInterval(() => { if (!JUDGE.state || Date.now() - JUDGE.at > 8000) liveSend("hello", {}); conn(); }, 2000); conn(); stopLoop = () => clearInterval(id);
 }
-function onRemoteState(p) { if (!isJudge()) return; JUDGE.state = p; drawJudge(); }
+function onRemoteState(p) { if (!isJudge()) return; JUDGE.state = p; JUDGE.at = Date.now(); drawJudge(); judgeImg(p.next); }
 function judgeSend(k, v) { liveSend("cmd", { k, v }); }
 function drawJudge() {
   const s = JUDGE.state, $ = id => document.getElementById(id); if (!s || !$("jmain")) return;
@@ -630,7 +645,15 @@ function drawJudge() {
   else if (s.phase === "done") { label = "Turn over"; main = esc(s.headline || ""); keys = `<button class="primary one" data-j="continue">Back to the board</button>`; }
   else { label = s.phase === "flash" ? "Correct" : s.phase === "pass" ? "Passed" : "Answer"; main = esc(s.answer || "");
     const off = s.phase === "play" ? "" : " disabled"; keys = `<button data-j="pass"${off}>Pass</button><button class="primary" data-j="correct"${off}>Correct</button>`; }
-  $("jmain").innerHTML = `<p class="jg-label">${label}</p><div class="jg-ans${many ? " sm" : ""}">${main}</div>`;
+  const sig = label + "|" + main + many;
+  if ($("jtext").dataset.sig !== sig) { $("jtext").dataset.sig = sig; $("jtext").innerHTML = `<p class="jg-label">${label}</p><div class="jg-ans${many ? " sm" : ""}">${main}</div>`; }
+  // the picture the player is looking at, next to the answer
+  const want = s.view !== "board" && s.img ? s.img : "";
+  if (JUDGE.shown !== want) {
+    JUDGE.shown = want;
+    if (!want) { $("jpic").hidden = true; $("jmain").classList.remove("split"); }
+    else judgeImg(want).then(u => { if (JUDGE.shown !== want || !$("jimg")) return; $("jimg").src = u; $("jpic").hidden = !u; $("jmain").classList.toggle("split", !!u); });
+  }
   $("jkeys").classList.toggle("many", many);
   if ($("jkeys").dataset.sig !== keys) { $("jkeys").dataset.sig = keys; $("jkeys").innerHTML = keys; $("jkeys").querySelectorAll("[data-j]").forEach(b => b.onclick = () => judgeSend(b.dataset.j, b.dataset.v)); }
 }
