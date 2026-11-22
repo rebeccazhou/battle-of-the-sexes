@@ -1,4 +1,4 @@
-# Battle of the Sexes
+# Better Half Showdown
 
 A picture-naming party game for the projector, girls against boys. Thanksgiving 2026 Edition.
 
