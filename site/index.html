@@ -320,9 +320,9 @@ function renderCat(cat) {
   $("file").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const u = await shrink(f); B.cands = [u]; setPick(u); drawCands(); } catch { toast("Couldn't read that photo."); } };
   $("add").onsubmit = async e => {
     e.preventDefault(); const answer = $("ans").value.trim(); if (!answer || !B.pick || B.busy) return; B.busy = true;
-    // Pixabay links stop working after a while, so save our own copy of those pictures
+    // Pixabay links expire and Google results live on random websites, so save our own copy when the site allows it
     let image_url = B.pick;
-    if (/^https:\/\/[^/]*pixabay\.com\//.test(image_url)) { try { image_url = await shrink(await (await fetch(image_url)).blob()); } catch { } }
+    if (/^https:/.test(image_url) && !/wikimedia\.org|wikipedia\.org|inaturalist|tvmaze\.com|themealdb|thecocktaildb|pexels\.com/.test(image_url)) { try { image_url = await shrink(await (await fetch(image_url)).blob()); } catch { } }
     try { await api("floor_items", { method: "POST", body: { category_id: cat.id, answer, image_url, added_by: B.name || null, team: B.team } }); B.cands = null; B.pick = null; toast(`Added ${answer}`); await renderBuild(); document.getElementById("ans")?.focus(); }
     catch { toast("Couldn't save. Try again."); } finally { B.busy = false; }
   };
@@ -364,13 +364,13 @@ async function findImages(q, cat) {
   if (is(/drink|cocktail|bar|brazil|beverage/))
     special.push(get(`https://www.thecocktaildb.com/api/json/v1/1/search.php?s=${enc(q)}`).then(o => (o?.drinks || []).slice(0, 3).map(d => d.strDrinkThumb)));
   if (is(/brazil|brasil/)) special.push(wiki(q, "pt"));
-  // stock photos (Pexels + Pixabay) go through our Supabase function, which holds the API keys; searched by the answer alone
+  // Google Images (via Serper), Pexels and Pixabay go through our Supabase function, which holds the API keys
   const stock = get(`${SB}/functions/v1/stock-images?q=${enc(q)}&c=${enc(hint)}`, 6000, { apikey: KEY, Authorization: `Bearer ${KEY}` })
-    .then(o => { const a = o?.pexels || [], b = o?.pixabay || [], m = []; for (let i = 0; i < Math.max(a.length, b.length); i++) m.push(a[i], b[i]); return m; });
+    .then(o => { const a = o?.pexels || [], b = o?.pixabay || [], m = []; for (let i = 0; i < Math.max(a.length, b.length); i++) m.push(a[i], b[i]); return { google: o?.google || [], stock: m }; });
   const [wpCat, wp, ov, cmCat, cm, st, ...sp] = await Promise.all([
     hint ? wiki(qt) : [], wiki(q), openverse(qc), hint ? commons(qt, 6) : [], commons(q, 12), stock, ...special]);
-  // order: category-matched Wikipedia, specialist sources, stock photos, plain Wikipedia, then the open photo libraries
-  const out = [...wpCat, ...sp.flat(), ...st.slice(0, 10), ...wp, ...ov, ...cmCat, ...cm].filter(u => typeof u === "string" && /^https:\/\//.test(u));
+  // order: Google, category-matched Wikipedia, specialist sources, stock photos, plain Wikipedia, then the open photo libraries
+  const out = [...st.google.slice(0, 8), ...wpCat, ...sp.flat(), ...st.stock.slice(0, 8), ...st.google.slice(8), ...wp, ...ov, ...cmCat, ...cm].filter(u => typeof u === "string" && /^https:\/\//.test(u));
   return [...new Set(out)].slice(0, 24);
 }
 function shrink(file) {
