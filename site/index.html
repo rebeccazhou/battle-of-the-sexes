@@ -99,6 +99,13 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 .tile.locked{opacity:.3;cursor:default}
 .tile.owned{background:var(--owner);color:#000;opacity:1}
 .tile.owned .tag{opacity:1}
+.pickbar{display:flex;gap:1vw;justify-content:center;align-items:center;flex-wrap:wrap}
+.pickbar button{font-size:var(--pm);padding:1.2vh 2.2vw;border:0;border-radius:8px;background:var(--teamfill)}
+.pickbar button.primary{background:var(--fg)}
+.pickbar .hud{font-size:var(--pm);font-variant-numeric:tabular-nums;margin-left:1vw}
+.pickbar a{font-size:var(--ps);margin-left:1vw}
+.tile.cand{cursor:default}
+.tile.pend{outline:4px solid var(--fg);outline-offset:-4px;cursor:default}
 .hostbar{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center;font-size:var(--s)}
 .hostbar button{padding:6px 12px}
 
@@ -117,10 +124,13 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 .jg-main{flex:1;min-height:0;border-radius:8px;background:var(--well);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3vw;gap:2vh}
 .jg-label{margin:0;font-size:var(--pm)}
 .jg-ans{font-size:clamp(40px,8vw,140px);font-weight:700;line-height:1.05;overflow-wrap:anywhere}
+.jg-ans.sm{font-size:var(--pl)}
 .jg-keys{display:grid;grid-template-columns:1fr 1fr;gap:1.2vw;height:30vh}
 .jg-keys:empty{display:none}
 .jg-keys button{font-size:var(--pl);border-radius:8px}
 .jg-keys button.one{grid-column:1/-1}
+.jg-keys.many{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));height:auto;min-height:30vh;grid-auto-rows:minmax(12vh,1fr)}
+.jg-keys.many button{font-size:var(--pm)}
 .jg-foot{display:flex;justify-content:space-between;gap:2vw;font-size:var(--s)}
 .pimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;border-radius:8px;overflow:hidden;background:var(--well)}
 .pimg img{max-width:100%;max-height:100%;object-fit:contain;background:#fff}
@@ -181,12 +191,12 @@ function renderHome() {
     <p class="h-intro">This is a picture-naming game, battle of the sexes. A picture goes up on the projector and the player has to say what it is. Each team builds categories it thinks the other team will struggle with.</p>
     <div class="h-actions"><a href="#build" class="cta">Build your team's categories</a><a href="#practice" class="cta2">Try a practice round</a></div>
     <div class="h-play"><h3>Game Play</h3>
-      <p>⛳️ One player stands up at a time, and the teams take turns. A category is chosen, the clock starts at 60 seconds, and pictures appear on the projector one after another.</p>
+      <p>⛳️ One player stands up at a time, and the teams take turns. First the category is chosen. Then the team decides who on the team goes up to play it. The clock starts at 60 seconds, and pictures appear on the projector one after another.</p>
       <p>🏞️ The player says out loud what each picture is. As soon as they get one right, the next picture appears. Every correct answer is worth one point for their team.</p>
       <p>🚫 If the player doesn't know a picture, they say “pass”. The answer is shown for 3 seconds while the clock keeps running, and then the next picture appears. There is no limit on passes, but each one uses up time.</p>
       <p>⌛ When the clock reaches zero the turn is over, and the points are added to the team's total on the scoreboard.</p>
-      <p>✌️ Everyone plays twice, once in each round. Round 1 uses everyday categories that are already loaded into the game. When it's your turn, you choose your own category from the ones still left on the board. Round 2 uses the categories the teams built. When it's your turn, the other team chooses which of their categories you have to face. Each category can only be played once.</p></div>
-    <p class="h-win">🏅 The team with the most points after each player plays 2 rounds, 24 rounds in total, wins. If the score is tied, one girl and one guy play a head-to-head tiebreak.</p>
+      <p>✌️ Everyone plays twice, once in each round, so choose strategically. Round 1 uses everyday categories that are already loaded into the game. On your team's turn, a random category is revealed and your team picks who plays it. Round 2 uses the categories the teams built. On your team's turn, the other team chooses which of their categories you have to face, and then your team picks who plays it. A player can only go up once per round, and each category can only be played once.</p></div>
+    <p class="h-win">🏅 The team with the most points after each player plays 2 rounds, 24 rounds in total, wins. If the score is tied, one player from each team plays a head-to-head tiebreak.</p>
     <div class="h-cats" id="homecats"><h3>The categories</h3><p>Round 1: Game created everyday categories.</p><div class="catgrid"></div><p>Round 2: Teams created bespoke categories.</p><div class="catgrid"></div></div>
   </div>`;
   loadHomeCats();
@@ -378,25 +388,34 @@ function shrink(file) {
 }
 
 /* ---------- host / game ---------- */
-const DEF = { clock: 60, pass: 3, duel: 30 };
-let G = null;      // { cats, cfg, own:{catId:{owner,score}}, up }
+const DEF = { clock: 60, pass: 3, duel: 30, huddle: 20 };
+let G = null;      // { cats, cfg, own:{catId:{owner,pts,player,round}}, first, pend:{id,at}, roster:{girls:[],boys:[]} }
 let T = null;      // active solo turn or duel
+let boardTimer = null;
 const isSandbox = () => location.hash === "#sandbox";
 const isHost = () => location.hash === "#host" || isSandbox();
 const gameKey = () => isSandbox() ? "floor_game_sandbox" : "floor_game";
-function saveG() { store.set(gameKey(), { cfg: G.cfg, own: G.own, up: G.up, order: G.order }); }
-// lineup: a random team starts, teams alternate, players shuffled within each team; everyone plays once per round
-function makeOrder(roster) {
-  const girls = roster.filter(p => p.team === "girls").map(p => p.name), boys = roster.filter(p => p.team === "boys").map(p => p.name);
-  if (!girls.length && !boys.length) return [];
-  const first = Math.random() < .5 ? "girls" : "boys";
-  const round = () => { const t = { girls: shuffle(girls), boys: shuffle(boys) }, a = t[first], b = t[other(first)], out = [];
-    for (let i = 0; i < Math.max(a.length, b.length); i++) { if (a[i]) out.push({ name: a[i], team: first }); if (b[i]) out.push({ name: b[i], team: other(first) }); }
-    return out; };
-  return [...round(), ...round()];
+function saveG() { store.set(gameKey(), { cfg: G.cfg, own: G.own, first: G.first, pend: G.pend }); }
+// Turns: teams alternate. Each turn the category is set first (round 1: a random everyday category is revealed;
+// round 2: the other team picks one of its own categories), then the team chooses who plays it.
+// Everyone plays once per round, so teams have to spend their players strategically.
+const roundOf = c => c.team === "wild" ? 1 : 2;
+const roundNow = () => tilesOf("wild").some(c => !G.own[c.id]) ? 1 : 2;
+const turnsIn = r => Object.entries(G.own).filter(([id, o]) => id !== "tiebreak" && o.round === r).length;
+const facing = t => tilesOf(other(t)).filter(c => !G.own[c.id]);   // round 2 categories team t still has to face
+function teamUp() {
+  const r = roundNow(), start = r === 1 ? G.first : other(G.first);   // the other team starts round 2
+  let t = turnsIn(r) % 2 ? other(start) : start;
+  if (r === 2 && !facing(t).length && facing(other(t)).length) t = other(t);
+  return t;
 }
-const turnsPlayed = () => Object.keys(G.own).filter(k => k !== "tiebreak").length;
-const current = (k = 0) => G.order?.[turnsPlayed() + k] || null;
+function playersLeft(t, r = roundNow()) {
+  const all = G.roster[t] || [], used = Object.values(G.own).filter(o => o.round === r && o.owner === t).map(o => o.player);
+  const left = all.filter(n => !used.includes(n));
+  return left.length ? left : all;   // more categories than players: everyone is available again
+}
+const pendCat = () => G.pend && G.cats.find(c => c.id === G.pend.id && !G.own[c.id]) || null;
+const huddleLeft = () => G.pend && G.cfg.huddle ? Math.max(0, G.cfg.huddle - (Date.now() - G.pend.at) / 1000) : null;
 async function hostInit() {
   app.innerHTML = `<div class="wrap"><p>Loading categories…</p></div>`;
   let cats, items;
@@ -407,19 +426,48 @@ async function hostInit() {
   cats = cats.filter(c => c.team !== "demo");
   // the sandbox plays only the sb_ test categories; the real game never sees them
   cats = isSandbox() ? cats.filter(c => c.team.startsWith("sb_")).map(c => Object.assign(c, { team: c.team.slice(3) })) : cats.filter(c => !c.team.startsWith("sb_"));
-  G = { cats, demo, cfg: Object.assign({}, DEF, s.cfg), own: s.own || {}, up: s.up || (Math.random() < .5 ? "girls" : "boys"), order: s.order || null };
-  if (!G.order?.length) {
-    let roster = []; try { roster = await api("rpc/floor_roster", { method: "POST", body: {} }); } catch {}
-    if (isSandbox()) roster = [["Ava", "girls"], ["Bea", "girls"], ["Cleo", "girls"], ["Dan", "boys"], ["Eli", "boys"], ["Finn", "boys"]].map(([name, team]) => ({ name, team }));
-    G.order = makeOrder(roster); saveG();
+  let roster = []; try { roster = await api("rpc/floor_roster", { method: "POST", body: {} }); } catch {}
+  if (isSandbox()) roster = [["Ava", "girls"], ["Bea", "girls"], ["Cleo", "girls"], ["Dan", "boys"], ["Eli", "boys"], ["Finn", "boys"]].map(([name, team]) => ({ name, team }));
+  G = { cats, demo, cfg: Object.assign({}, DEF, s.cfg), own: s.own || {}, first: s.first || (Math.random() < .5 ? "girls" : "boys"), pend: s.pend || null,
+    roster: { girls: roster.filter(p => p.team === "girls").map(p => p.name), boys: roster.filter(p => p.team === "boys").map(p => p.name) } };
+  for (const id of Object.keys(G.own)) {
+    const c = cats.find(x => x.id === id);
+    if ((id !== "tiebreak" && !c) || typeof G.own[id].pts !== "number") delete G.own[id];
+    else if (c && !G.own[id].round) G.own[id].round = roundOf(c);
   }
+  if (!pendCat()) G.pend = null;
+  saveG();
   LIVE.onReady = () => pushState(true);
   liveChannel(isSandbox() ? "floor-sandbox" : "floor-game");
-  for (const id of Object.keys(G.own)) if ((id !== "tiebreak" && !cats.some(c => c.id === id)) || typeof G.own[id].pts !== "number") delete G.own[id];
   T = null; renderBoard();
 }
 const tilesOf = t => G.cats.filter(c => c.team === t);
 const count = t => Object.values(G.own).filter(o => o.owner === t).reduce((n, o) => n + o.pts, 0);
+// board actions (from the projector or the judges' laptop)
+function revealCat() {
+  if (T || G.pend || roundNow() !== 1) return;
+  const opts = tilesOf("wild").filter(c => !G.own[c.id] && c.items.length);
+  if (!opts.length) return toast("No everyday categories with pictures left.");
+  G.pend = { id: opts[Math.floor(Math.random() * opts.length)].id, at: Date.now() }; saveG(); beep(660, .15); renderBoard();
+}
+function chooseCat(id) {
+  if (T || G.pend || roundNow() !== 2) return;
+  const c = facing(teamUp()).find(x => x.id === id); if (!c) return;
+  if (!c.items.length) return toast("That category has no pictures yet.");
+  G.pend = { id, at: Date.now() }; saveG(); beep(660, .15); renderBoard();
+}
+function choosePlayer(name) {
+  const c = pendCat(); if (T || !c) return;
+  const left = playersLeft(teamUp());
+  if (left.length && !left.includes(name)) return;
+  startTurn(c, { player: left.length ? name : "" });
+}
+function unchooseCat() { if (T || !G.pend || roundNow() !== 2) return; G.pend = null; saveG(); renderBoard(); }
+function boardInfo() {
+  const r = roundNow(), up = teamUp(), pc = pendCat();
+  const any = G.cats.length > 0, done = any && r === 2 && !facing("girls").length && !facing("boys").length;
+  return { r, up, pc, any, done, phase: done ? "over" : !any ? "empty" : pc ? "player" : r === 1 ? "reveal" : "cat" };
+}
 // choose a columns x rows grid that fits n tiles with the fewest empty cells and roughly square-ish tiles
 function boardGrid(n) {
   if (!n) return "";
@@ -427,32 +475,41 @@ function boardGrid(n) {
   for (let c = 1; c <= n; c++) { const r = Math.ceil(n / c), score = (c * r - n) + 2 * Math.abs(Math.log((aspect * r / c) / 1.25)); if (!best || score < best.score) best = { c, r, score }; }
   return `grid-template-columns:repeat(${best.c},1fr);grid-template-rows:repeat(${best.r},1fr)`;
 }
+const huddleTxt = () => { const h = huddleLeft(); return h === null ? "" : h > 0 ? `${Math.ceil(h)}s to decide` : "Time to decide!"; };
 function renderBoard() {
   if (!isHost()) return;
+  clearInterval(boardTimer); boardTimer = null;
   T = null; setAnswer("");
   const g = tilesOf("girls"), b = tilesOf("boys"), sys = tilesOf("wild");
   // interleave so the top of the board is a mix of both teams' tiles
   const team = []; for (let i = 0; i < Math.max(g.length, b.length); i++) { const pair = i % 2 ? [b[i], g[i]] : [g[i], b[i]]; pair.forEach(c => c && team.push(c)); }
-  const left = t => tilesOf(other(t)).filter(c => !G.own[c.id]).length;   // round 2 tiles team t still has to face
-  const sysLeft = sys.filter(c => !G.own[c.id]).length, any = team.length + sys.length > 0;
-  const r1 = sysLeft > 0;
-  const cur = current(), nxt = current(1);
-  if (cur) G.up = cur.team;
-  if (!r1 && left(G.up) === 0 && left(other(G.up)) > 0) G.up = other(G.up);
-  const done = any && !r1 && !left("girls") && !left("boys");
+  const { r, up, pc, any, done, phase } = boardInfo();
+  G.up = up;
   const gs = count("girls"), bs = count("boys");
   const tile = c => {
-    const o = G.own[c.id], isSys = c.team === "wild", open = !o && (isSys ? r1 : !r1 && other(c.team) === G.up);
+    const o = G.own[c.id], isSys = c.team === "wild";
+    const state = o ? "owned" : pc ? (pc.id === c.id ? "pend" : "locked") : isSys ? (r === 1 ? "cand" : "locked") : (r === 2 && other(c.team) === up ? "open" : "locked");
     const tag = o ? `${SYM[o.owner]} ${o.player ? o.player + " " : ""}+${o.pts}` : isSys ? "Round 1" : `Round 2 · ${SYM[c.team]} list`;
-    return `<button class="tile ${c.team} ${o ? "owned" : open ? "open" : "locked"}" style="${o ? `--owner:var(--${o.owner})` : isSys ? `--tint:${emojiTint(c.emoji)}` : ""}" data-tile="${c.id}" title="Shift-click to correct the score"><span class="em">${esc(c.emoji || "")}</span><span class="nm">${esc(c.name)}</span><span class="tag">${esc(tag)}</span></button>`;
+    return `<button class="tile ${c.team} ${state}" style="${o ? `--owner:var(--${o.owner})` : isSys ? `--tint:${emojiTint(c.emoji)}` : ""}" data-tile="${c.id}" title="Shift-click to correct the score"><span class="em">${esc(c.emoji || "")}</span><span class="nm">${esc(c.name)}</span><span class="tag">${esc(tag)}</span></button>`;
   };
-  const upTxt = done ? (gs === bs ? "Tied! Play the tiebreak duel" : `${TEAM[gs > bs ? "girls" : "boys"]} wins, ${Math.max(gs, bs)} to ${Math.min(gs, bs)}!`) : any ? `Round ${r1 ? 1 : 2}: ${SYM[G.up]} ${cur ? esc(cur.name) : ""} is up` : "No categories yet";
-  const who = cur ? esc(cur.name) : G.up === "girls" ? "she" : "he";
-  const sub = done || !any ? "" : (r1 ? `${cur ? who : G.up === "girls" ? "She" : "He"} picks any everyday category left on the board` : `${TEAM[other(G.up)]}, pick which of your categories ${who} faces`) + (nxt ? ` · Next: ${SYM[nxt.team]} ${esc(nxt.name)}` : "");
+  let upTxt = "", sub = "", bar = "";
+  if (phase === "empty") upTxt = "No categories yet";
+  else if (phase === "over") upTxt = gs === bs ? "Tied! Play the tiebreak duel" : `${TEAM[gs > bs ? "girls" : "boys"]} wins, ${Math.max(gs, bs)} to ${Math.min(gs, bs)}!`;
+  else if (phase === "reveal") { upTxt = `Round 1: ${TEAM[up]} is up`; sub = "Reveal a random everyday category, then the team picks who plays it";
+    bar = `<button class="primary" id="breveal">Reveal the category</button>`; }
+  else if (phase === "cat") { upTxt = `Round 2: ${TEAM[up]} is up`; sub = `${TEAM[other(up)]}, pick which of your categories ${TEAM[up]} faces. Tap it on the board`; }
+  else {
+    const left = playersLeft(up);
+    upTxt = `${SYM[up]} ${esc(pc.emoji || "")} ${esc(pc.name)}`;
+    sub = `${TEAM[up]}, who's going? Everyone plays once per round`;
+    bar = (left.length ? left.map(n => `<button data-player="${esc(n)}">${esc(n)}</button>`).join("") : `<button data-player="">Start the turn</button>`)
+      + (G.cfg.huddle ? `<span class="hud" id="huddle">${huddleTxt()}</span>` : "") + (r === 2 ? `<a href="#" id="bunpick">Change category</a>` : "");
+  }
   app.innerHTML = `<div class="stage">
-    <div class="score"><div class="side girls"><span class="dot" aria-label="Girls">${SYM.girls}</span><span class="num">${gs}</span></div>
+    <div class="score"><div class="side girls"><span class="dot" aria-label="Team purple">${SYM.girls}</span><span class="num">${gs}</span></div>
       <div class="mid"><div class="up">${upTxt}</div><div class="sub">${sub}</div></div>
-      <div class="side boys"><span class="num">${bs}</span><span class="dot" aria-label="Boys">${SYM.boys}</span></div></div>
+      <div class="side boys"><span class="num">${bs}</span><span class="dot" aria-label="Team green">${SYM.boys}</span></div></div>
+    ${bar ? `<div class="pickbar ${up}">${bar}</div>` : ""}
     <div class="board" style="${boardGrid(sys.length + team.length)}">${sys.map(tile).join("")}${team.map(tile).join("")}</div>
     <div class="hostbar"><span>${isSandbox() ? "<b>Sandbox.</b> Test categories only, nothing here touches the real game · " : ""}${G.cfg.clock}s clock · pass costs ${G.cfg.pass}s · Judges: open ${esc(location.host)}/#${isSandbox() ? "sandbox-judge" : "judge"} on the judges' laptop · Shift-click a tile to correct its score</span>
       <span class="row"><button id="bprac">Practice round</button><button id="btie">Tiebreak duel</button><button id="bset">Settings</button><button id="bfs">Full screen</button><button id="bnew">New game</button><a href="#">Exit</a></span></div></div>`;
@@ -460,20 +517,25 @@ function renderBoard() {
     const c = G.cats.find(x => x.id === el.dataset.tile), o = G.own[c.id];
     if (e.shiftKey) {
       const v = prompt(`Points scored on "${c.name}" (leave blank to mark it unplayed)`, o ? o.pts : ""); if (v === null) return; const n = parseInt(v, 10);
-      if (n >= 0) { const owner = o ? o.owner : c.team === "wild" ? G.up : other(c.team); if (!o) G.up = other(owner); G.own[c.id] = { owner, pts: n }; } else delete G.own[c.id];
+      if (n >= 0) { const owner = o ? o.owner : c.team === "wild" ? up : other(c.team); G.own[c.id] = { owner, pts: n, player: o?.player, round: roundOf(c) }; } else delete G.own[c.id];
+      if (G.pend?.id === c.id) G.pend = null;
       saveG(); return renderBoard(); }
-    if (o || el.classList.contains("locked")) return;
-    if (!c.items.length) return toast("That category has no pictures yet.");
-    startTurn(c);
+    if (el.classList.contains("open")) chooseCat(c.id);
   });
+  app.querySelectorAll("[data-player]").forEach(el => el.onclick = () => choosePlayer(el.dataset.player));
+  document.getElementById("breveal")?.addEventListener("click", revealCat);
+  document.getElementById("bunpick")?.addEventListener("click", e => { e.preventDefault(); unchooseCat(); });
   document.getElementById("bprac").onclick = () => G.demo?.items.length ? startTurn(G.demo, { practice: true }) : toast("The practice category has no pictures yet.");
   document.getElementById("btie").onclick = () => { const items = sys.flatMap(c => c.items); items.length ? startDuel({ id: "tiebreak", name: "Tiebreak", emoji: "", items }) : toast("No pictures available for a tiebreak."); };
   document.getElementById("bfs").onclick = () => document.documentElement.requestFullscreen?.().catch(() => {});
-  document.getElementById("bnew").onclick = () => { if (confirm("Clear the board and start a new game?")) { G.own = {}; G.order = null; saveG(); hostInit(); } };
+  document.getElementById("bnew").onclick = () => { if (confirm("Clear the board and start a new game?")) { G.own = {}; G.pend = null; G.first = Math.random() < .5 ? "girls" : "boys"; saveG(); hostInit(); } };
   document.getElementById("bset").onclick = () => {
-    const ask = (label, k) => { const v = prompt(label, G.cfg[k]); const n = parseInt(v, 10); if (n > 0) G.cfg[k] = n; };
-    ask("Seconds on the clock for a turn", "clock"); ask("Seconds lost on a pass", "pass"); ask("Seconds each in the tiebreak duel", "duel"); saveG(); renderBoard();
+    const ask = (label, k, min = 1) => { const v = prompt(label, G.cfg[k]); const n = parseInt(v, 10); if (n >= min) G.cfg[k] = n; };
+    ask("Seconds on the clock for a turn", "clock"); ask("Seconds lost on a pass", "pass"); ask("Seconds each in the tiebreak duel", "duel");
+    ask("Seconds for a team to choose its player (0 for no timer)", "huddle", 0); saveG(); renderBoard();
   };
+  if (G.pend && G.cfg.huddle) boardTimer = setInterval(() => { const h = document.getElementById("huddle"); if (!h || T) return clearInterval(boardTimer); h.textContent = huddleTxt(); pushState(); }, 250);
+  pushState();
 }
 async function practiceInit() {
   app.innerHTML = `<div class="wrap"><p>Loading the practice round…</p></div>`;
@@ -508,11 +570,20 @@ function pushState(force) {
     const it = T.items[T.i], showing = T.phase === "play" || T.phase === "flash" || T.phase === "pass";
     st = { view: T.kind, phase: T.phase, cat: T.cat.name, emoji: T.cat.emoji || "", team: T.kind === "duel" ? T.active : T.team, player: T.player || "",
       answer: showing && it ? it.answer : "", time: Math.max(0, Math.ceil(T.kind === "duel" ? T.time[T.active] : T.time)), correct: T.correct || 0, practice: !!T.practice, headline: T.phase === "done" ? T.headline : "" };
-  } else { const c = current(); st = { view: "board", team: G.up, player: c ? c.name : "", score: { girls: count("girls"), boys: count("boys") } }; }
+  } else {
+    const { r, up, pc, phase } = boardInfo(), h = huddleLeft();
+    st = { view: "board", phase, round: r, team: up, cat: pc ? pc.name : "", emoji: pc ? pc.emoji || "" : "",
+      players: phase === "player" ? playersLeft(up) : [], cats: phase === "cat" ? facing(up).map(c => ({ id: c.id, name: c.name, emoji: c.emoji || "" })) : [],
+      huddle: h === null ? null : Math.ceil(h), score: { girls: count("girls"), boys: count("boys") } };
+  }
   const key = JSON.stringify(st); if (!force && key === LIVE.last) return; LIVE.last = key; liveSend("state", st);
 }
 function onRemoteCmd(p) {
-  if (!isHost() || !T) return;
+  if (!isHost() || !G) return;
+  if (!T) {   // board: the judges can reveal, pick the category (round 2) and pick the player
+    if (p.k === "reveal") revealCat(); else if (p.k === "cat") chooseCat(p.v); else if (p.k === "player") choosePlayer(p.v || ""); else if (p.k === "unpick") unchooseCat();
+    return;
+  }
   const press = key => onKey({ key, preventDefault() {} });
   if (p.k === "start" && T.phase === "ready") press(" ");
   else if (p.k === "correct" && T.phase === "play") press(" ");
@@ -534,26 +605,39 @@ function renderJudge(sandbox) {
   const id = setInterval(() => { if (!JUDGE.state) liveSend("hello", {}); }, 2000); stopLoop = () => clearInterval(id);
 }
 function onRemoteState(p) { if (!isJudge()) return; JUDGE.state = p; drawJudge(); }
-function judgeSend(k) { liveSend("cmd", { k }); }
+function judgeSend(k, v) { liveSend("cmd", { k, v }); }
 function drawJudge() {
   const s = JUDGE.state, $ = id => document.getElementById(id); if (!s || !$("jmain")) return;
-  $("jwho").innerHTML = s.team && SYM[s.team] ? `${SYM[s.team]} ${esc(s.player || "")}` : "";
-  $("jcat").textContent = s.view === "board" ? "" : `${s.emoji || ""} ${s.cat || ""}`;
-  $("jclock").textContent = s.view === "board" ? "" : String(s.time ?? "");
-  $("jclock").classList.toggle("low", s.view !== "board" && s.time <= 10);
+  $("jwho").innerHTML = s.team && SYM[s.team] ? `${SYM[s.team]} ${esc(s.view === "board" ? "" : s.player || "")}` : "";
+  $("jcat").textContent = s.cat ? `${s.emoji || ""} ${s.cat}` : "";
+  const clk = s.view === "board" ? (s.phase === "player" && s.huddle !== null ? s.huddle : "") : s.time ?? "";
+  $("jclock").textContent = String(clk);
+  $("jclock").classList.toggle("low", clk !== "" && clk <= 5);
   $("jcount").textContent = s.view === "solo" ? `${s.correct} named` : "";
-  let label = "", main = "", keys = "";
-  if (s.view === "board") { label = "Waiting for the next turn"; main = s.player ? `${SYM[s.team]} ${esc(s.player)} is up` : "Pick a category on the projector"; }
+  let label = "", main = "", keys = "", many = false;
+  const T_ = TEAM[s.team] || "";
+  if (s.view === "board") {
+    if (s.phase === "reveal") { label = `Round 1: ${T_} is up`; main = "Reveal a random category"; keys = `<button class="primary one" data-j="reveal">Reveal the category</button>`; }
+    else if (s.phase === "cat") { label = `Round 2: ${T_} is up`; main = `${TEAM[other(s.team)]}, which of your categories does ${T_} face?`;
+      many = true; keys = (s.cats || []).map(c => `<button data-j="cat" data-v="${esc(c.id)}">${esc(c.emoji)} ${esc(c.name)}</button>`).join(""); }
+    else if (s.phase === "player") { label = `${T_}, who's going?`; main = `${esc(s.emoji || "")} ${esc(s.cat || "")}`;
+      many = true; keys = (s.players?.length ? s.players.map(n => `<button class="primary" data-j="player" data-v="${esc(n)}">${esc(n)}</button>`).join("") : `<button class="primary" data-j="player" data-v="">Start the turn</button>`)
+        + (s.round === 2 ? `<button data-j="unpick">Change category</button>` : ""); }
+    else if (s.phase === "over") { label = "Game over"; main = s.score ? `${SYM.girls} ${s.score.girls} · ${SYM.boys} ${s.score.boys}` : ""; }
+    else { label = "Waiting for the projector"; main = ""; }
+  }
   else if (s.phase === "ready") { label = "Ready when the player is"; main = esc(s.cat || ""); keys = `<button class="primary one" data-j="start">Start</button>`; }
   else if (s.phase === "done") { label = "Turn over"; main = esc(s.headline || ""); keys = `<button class="primary one" data-j="continue">Back to the board</button>`; }
   else { label = s.phase === "flash" ? "Correct" : s.phase === "pass" ? "Passed" : "Answer"; main = esc(s.answer || "");
     const off = s.phase === "play" ? "" : " disabled"; keys = `<button data-j="pass"${off}>Pass</button><button class="primary" data-j="correct"${off}>Correct</button>`; }
-  $("jmain").innerHTML = `<p class="jg-label">${label}</p><div class="jg-ans">${main}</div>`;
-  if ($("jkeys").dataset.sig !== keys) { $("jkeys").dataset.sig = keys; $("jkeys").innerHTML = keys; $("jkeys").querySelectorAll("[data-j]").forEach(b => b.onclick = () => judgeSend(b.dataset.j)); }
+  $("jmain").innerHTML = `<p class="jg-label">${label}</p><div class="jg-ans${many ? " sm" : ""}">${main}</div>`;
+  $("jkeys").classList.toggle("many", many);
+  if ($("jkeys").dataset.sig !== keys) { $("jkeys").dataset.sig = keys; $("jkeys").innerHTML = keys; $("jkeys").querySelectorAll("[data-j]").forEach(b => b.onclick = () => judgeSend(b.dataset.j, b.dataset.v)); }
 }
 window.addEventListener("keydown", e => {
   if (!isJudge() || !JUDGE.state) return;
   const k = e.key.toLowerCase(), ph = JUDGE.state.phase;
+  if (JUDGE.state.view === "board") { if ((k === " " || k === "enter") && ph === "reveal") { e.preventDefault(); judgeSend("reveal"); } return; }
   if (k === " " || k === "enter") { e.preventDefault(); judgeSend(ph === "ready" ? "start" : ph === "done" ? "continue" : "correct"); }
   else if (k === "p") { e.preventDefault(); judgeSend("pass"); }
 });
@@ -571,10 +655,11 @@ const fmt = s => String(Math.max(0, Math.ceil(s)));
 /* ----- solo turn ----- */
 function startTurn(cat, opt = {}) {
   const items = shuffle(cat.items); preload(items);
-  const team = opt.practice ? (location.hash === "#practice" ? (B.team || "wild") : G.up) : cat.team === "wild" ? G.up : other(cat.team);
+  const team = opt.practice ? (location.hash === "#practice" ? (B.team || "wild") : G.up) : cat.team === "wild" ? teamUp() : other(cat.team);
   T = { kind: "solo", cat, team, practice: !!opt.practice, items, i: -1, correct: 0, time: opt.practice ? 30 : G.cfg.clock, phase: "ready", hold: 0 };
   T.secs = T.time;
-  T.player = !opt.practice && current() && current().team === team ? current().name : "";
+  T.player = opt.practice ? "" : opt.player || "";
+  clearInterval(boardTimer); boardTimer = null;
   app.innerHTML = `<div class="play ${T.team}">
     <div class="ptop"><div class="who">${T.practice ? "Practice" : `<span aria-label="${TEAM[T.team]} up">${SYM[T.team]}</span> ${esc(T.player)}`}</div><h2>${esc(cat.emoji || "")} ${esc(cat.name)}</h2><div class="clock" id="clock">${fmt(T.time)}</div></div>
     <div class="pimg" id="pimg"></div>
@@ -619,7 +704,7 @@ function tick(dt) {
   else ["girls", "boys"].forEach(t => { const c = document.getElementById("c" + t); if (c) { c.textContent = fmt(T.time[t]); c.classList.toggle("low", T.time[t] <= 10); } });
 }
 function endSolo(why) {
-  if (!T.practice) { G.own[T.cat.id] = { owner: T.team, pts: T.correct, player: T.player || undefined }; G.up = other(T.team); saveG(); }
+  if (!T.practice) { G.own[T.cat.id] = { owner: T.team, pts: T.correct, player: T.player || undefined, round: roundOf(T.cat) }; G.pend = null; saveG(); }
   T.phase = "done"; T.winner = T.team;
   T.headline = T.practice ? `${T.correct} named` : `${T.correct} ${T.correct === 1 ? "point" : "points"} for ${T.player || TEAM[T.team]}`;
   T.detail = T.practice ? `${why}. That was just practice, nothing is scored.` : `${why}.`; [660, 880, 1100].forEach((f, i) => setTimeout(() => beep(f, .18), i * 130)); show();
