@@ -309,7 +309,8 @@ function renderCat(cat) {
     <div class="row"><a href="#build" class="grow" id="back">&larr; All categories</a>${B.tab === "wild" ? "" : `<button id="editcat">Edit name</button><button class="danger" id="delcat">Delete category</button>`}</div>
     <div><h1 id="cattitle">${esc(cat.emoji || "")} ${esc(cat.name)}</h1>
       <form class="row" id="renameform" hidden><input type="text" id="rnem" maxlength="4" value="${esc(cat.emoji || "")}" aria-label="Emoji" style="width:72px;text-align:center" autocomplete="off"><div class="grow"><input type="text" id="rnname" maxlength="60" value="${esc(cat.name)}" aria-label="Category name" required autocomplete="off"></div><button class="primary">Save</button><button type="button" id="rncancel">Cancel</button></form><div class="count ${items.length >= (B.tab === "wild" ? 10 : 15) ? "ok" : ""}">${B.tab === "wild" ? `${items.length} from your team (aim for 10). The other team adds the other half.` : `${items.length} pictures${items.length < 15 ? " (aim for 15+)" : ""}`}</div></div>
-    <form class="card stack" id="add"><h3>Add a picture</h3>
+    <form class="card stack" id="add"><div class="row"><h3 class="grow">Add a picture</h3><button type="button" id="suggest">Suggest answers</button></div>
+      <div id="sugg"></div>
       <div><label for="ans" class="muted">Answer (what the player has to say)</label><input type="text" id="ans" maxlength="80" placeholder="e.g. Patrick Mahomes" required autocomplete="off"></div>
       <div class="row"><div class="grow"><input type="text" id="q" placeholder="Search words (optional, defaults to the answer)" aria-label="Search words" autocomplete="off"></div><button type="button" class="primary" id="find">Find pictures</button></div>
       <div id="cands"></div>
@@ -354,6 +355,28 @@ function renderCat(cat) {
   };
   const find = async () => { const q = ($("q").value.trim() || $("ans").value.trim()); if (!q) { $("ans").focus(); return; } B.cands = "loading"; B.q = q; B.page = 1; B.more = true; setPick(null); drawCands(); B.cands = await findImages(q, cat.name); drawCands(); };
   $("find").onclick = find;
+  // answer suggestions: tap one to fill the answer and search for its pictures
+  const drawSugg = () => {
+    const box = $("sugg"), s = B.suggFor === cat.id ? B.sugg : null;
+    if (!s) { box.innerHTML = ""; return; }
+    if (s === "loading") { box.innerHTML = `<p class="muted">Thinking of answers…</p>`; return; }
+    if (s === "off") { box.innerHTML = `<p class="muted">Suggestions aren't switched on yet.</p>`; return; }
+    const left = s.filter(a => !items.some(i => i.answer.toLowerCase() === a.toLowerCase()));
+    box.innerHTML = left.length ? `<p class="muted" style="margin:0 0 8px">Tap one to use it.</p><div class="chips">${left.map(a => `<button type="button" data-s="${esc(a)}">${esc(a)}</button>`).join("")}</div>`
+      : `<p class="muted">No suggestions this time. Tap Suggest answers to try again.</p>`;
+    box.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { $("ans").value = b.dataset.s; $("q").value = ""; B.sugg = B.sugg.filter(x => x !== b.dataset.s); b.remove(); find(); });
+  };
+  $("suggest").onclick = async () => {
+    B.suggFor = cat.id; B.sugg = "loading"; drawSugg();
+    const have = items.map(i => i.answer).slice(0, 80).join("|");
+    try {
+      const r = await fetch(`${SB}/functions/v1/suggest-answers?c=${encodeURIComponent(cat.name)}&have=${encodeURIComponent(have)}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
+      const j = await r.json(); if (B.suggFor !== cat.id) return;
+      B.sugg = j.source === "off" ? "off" : j.answers || [];
+    } catch { B.sugg = []; }
+    drawSugg();
+  };
+  drawSugg();
   $("ans").onkeydown = $("q").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); find(); } };
   $("url").oninput = () => { const u = $("url").value.trim(); setPick(/^https?:\/\/\S+$/.test(u) ? u : null); drawCands(); };
   $("file").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const u = await shrink(f); B.cands = [u]; B.q = null; setPick(u); drawCands(); } catch { toast("Couldn't read that photo."); } };
