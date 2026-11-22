@@ -365,7 +365,7 @@ async function findImages(q, cat) {
     special.push(get(`https://www.thecocktaildb.com/api/json/v1/1/search.php?s=${enc(q)}`).then(o => (o?.drinks || []).slice(0, 3).map(d => d.strDrinkThumb)));
   if (is(/brazil|brasil/)) special.push(wiki(q, "pt"));
   // stock photos (Pexels + Pixabay) go through our Supabase function, which holds the API keys; searched by the answer alone
-  const stock = get(`${SB}/functions/v1/stock-images?q=${enc(q)}`, 6000, { apikey: KEY, Authorization: `Bearer ${KEY}` })
+  const stock = get(`${SB}/functions/v1/stock-images?q=${enc(q)}&c=${enc(hint)}`, 6000, { apikey: KEY, Authorization: `Bearer ${KEY}` })
     .then(o => { const a = o?.pexels || [], b = o?.pixabay || [], m = []; for (let i = 0; i < Math.max(a.length, b.length); i++) m.push(a[i], b[i]); return m; });
   const [wpCat, wp, ov, cmCat, cm, st, ...sp] = await Promise.all([
     hint ? wiki(qt) : [], wiki(q), openverse(qc), hint ? commons(qt, 6) : [], commons(q, 12), stock, ...special]);
