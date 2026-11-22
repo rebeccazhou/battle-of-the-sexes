@@ -74,6 +74,11 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 .item .cap{padding:8px 10px;font-size:var(--s);display:flex;justify-content:space-between;gap:6px;align-items:start}
 .item .cap span{min-width:0;overflow-wrap:anywhere}
 .item .x{padding:0 6px;border:0}
+.blurbox{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
+.blurpanel{background:var(--bg);border-radius:12px;padding:16px;width:min(960px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px}
+.blurpanel p{margin:0}
+.blurstage{display:flex;justify-content:center;min-height:0}
+.blurstage canvas{max-width:100%;max-height:65vh;touch-action:none;cursor:crosshair;border-radius:8px}
 .cands{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
 .cands button{padding:0;border-radius:8px;overflow:hidden;border:4px solid transparent;aspect-ratio:1}
 .cands button.sel{border-color:var(--fg)}
@@ -316,8 +321,8 @@ function renderCat(cat) {
       <div class="row"><div class="grow"><input type="text" id="q" placeholder="Search words (optional, defaults to the answer)" aria-label="Search words" autocomplete="off"></div><button type="button" class="primary" id="find">Find pictures</button></div>
       <div id="cands"></div>
       <div class="row"><label class="muted" style="cursor:pointer"><u>Upload your own photo</u><input type="file" id="file" accept="image/*" hidden></label><span class="muted">or</span><div class="grow"><input type="text" id="url" placeholder="Paste an image link" aria-label="Image link" autocomplete="off"></div></div>
-      <button class="primary" id="save" disabled>Pick a picture first</button></form>
-    <div class="items">${items.map(i => `<div class="item"><img src="${esc(i.image_url)}" alt="" loading="lazy"><div class="cap"><span>${esc(i.answer)}</span><button class="x" data-del="${i.id}" aria-label="Remove ${esc(i.answer)}">✕</button></div></div>`).join("")}</div></div>`;
+      <div class="row"><button type="button" id="blurpick" hidden>Blur logos</button><button class="primary grow" id="save" disabled>Pick a picture first</button></div></form>
+    <div class="items">${items.map(i => `<div class="item"><img src="${esc(i.image_url)}" alt="" loading="lazy"><div class="cap"><span>${esc(i.answer)}</span><span class="row" style="gap:2px;flex-wrap:nowrap"><button class="x" data-blur="${i.id}" title="Blur a logo or name" aria-label="Blur part of ${esc(i.answer)}">Blur</button><button class="x" data-del="${i.id}" aria-label="Remove ${esc(i.answer)}">✕</button></span></div></div>`).join("")}</div></div>`;
   const $ = id => document.getElementById(id);
   $("back").onclick = e => { e.preventDefault(); B.open = null; renderBuild(); };
   // rename: swap the title for an emoji + name form
@@ -331,7 +336,20 @@ function renderCat(cat) {
   };
   if ($("delcat")) $("delcat").onclick = async () => { if (!confirm(`Delete "${cat.name}" and its ${items.length} pictures?`)) return; await api(`floor_categories?id=eq.${cat.id}`, { method: "DELETE" }); B.open = null; renderBuild(); };
   app.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await api(`floor_items?id=eq.${b.dataset.del}`, { method: "DELETE" }); renderBuild(); });
-  const setPick = url => { B.pick = url; $("save").disabled = !url; $("save").textContent = url ? "Add to category" : "Pick a picture first"; };
+  const setPick = url => { B.pick = url; $("save").disabled = !url; $("save").textContent = url ? "Add to category" : "Pick a picture first"; $("blurpick").hidden = !url; };
+  // blur logos on the chosen picture before saving it
+  $("blurpick").onclick = async () => {
+    const out = await openBlur(B.pick); if (!out) return;
+    if (Array.isArray(B.cands)) B.cands = B.cands.map(u => u === B.pick ? out : u); else B.cands = [out];
+    $("url").value = ""; setPick(out); drawCands();
+  };
+  // blur logos on a picture already in the category
+  app.querySelectorAll("[data-blur]").forEach(b => b.onclick = async () => {
+    const it = items.find(i => i.id === b.dataset.blur); if (!it) return;
+    const out = await openBlur(it.image_url); if (!out) return;
+    try { await api(`floor_items?id=eq.${it.id}`, { method: "PATCH", body: { image_url: out } }); toast("Saved"); renderBuild(); }
+    catch { toast("Couldn't save. Try again."); }
+  });
   setPick(null);
   const drawCands = () => {
     const box = $("cands");
@@ -385,11 +403,63 @@ function renderCat(cat) {
     e.preventDefault(); const answer = $("ans").value.trim(); if (!answer || !B.pick || B.busy) return; B.busy = true;
     // Pixabay links expire and Google results live on random websites, so save our own copy when the site allows it
     let image_url = B.pick;
-    if (/^https:/.test(image_url) && !/wikimedia\.org|wikipedia\.org|inaturalist|tvmaze\.com|themealdb|thecocktaildb|pexels\.com/.test(image_url)) { try { image_url = await shrink(await (await fetch(image_url)).blob()); } catch { } }
+    if (/^https:/.test(image_url) && !/wikimedia\.org|wikipedia\.org|inaturalist|tvmaze\.com|themealdb|thecocktaildb|pexels\.com/.test(image_url)) { try { image_url = await shrink(await fetchImageBlob(image_url)); } catch { } }
     try { await api("floor_items", { method: "POST", body: { category_id: cat.id, answer, image_url, added_by: B.name || null, team: B.team } }); B.cands = null; B.pick = null; toast(`Added ${answer}`); await renderBuild(); document.getElementById("ans")?.focus(); }
     catch { toast("Couldn't save. Try again."); } finally { B.busy = false; }
   };
   drawCands();
+}
+// get a picture's bytes: straight from the site when it allows it, otherwise through our image-proxy function
+async function fetchImageBlob(url) {
+  try { const r = await fetch(url); if (r.ok) return await r.blob(); } catch { }
+  const r = await fetch(`${SB}/functions/v1/image-proxy?u=${encodeURIComponent(url)}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
+  if (!r.ok) throw new Error("image unavailable"); return await r.blob();
+}
+// load a picture so it can be drawn on a canvas and saved again (needs the site's permission, or the proxy)
+async function loadEditable(url) {
+  const load = src => new Promise((res, rej) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = rej; im.src = src; });
+  if (url.startsWith("data:")) return load(url);
+  try { const im = await load(url); const t = document.createElement("canvas"); t.width = t.height = 1; t.getContext("2d").drawImage(im, 0, 0, 1, 1); t.toDataURL(); return im; } catch { }
+  return load(URL.createObjectURL(await fetchImageBlob(url)));
+}
+// circle-to-blur editor: drag an oval over a logo or a name and that area is blurred. Resolves to a JPEG data URL, or null if cancelled.
+function openBlur(url) {
+  return new Promise(async resolve => {
+    const box = document.createElement("div"); box.className = "blurbox";
+    box.innerHTML = `<div class="blurpanel" role="dialog" aria-label="Blur logos"><p>Drag a circle over each logo or name to blur it. Drag again to blur more.</p>
+      <div class="blurstage"><p class="muted">Loading the picture…</p></div>
+      <div class="row"><button type="button" data-b="undo" disabled>Undo</button><span class="grow"></span><button type="button" data-b="cancel">Cancel</button><button type="button" class="primary" data-b="save" disabled>Save</button></div></div>`;
+    document.body.append(box);
+    const close = v => { box.remove(); resolve(v); };
+    const btn = k => box.querySelector(`[data-b="${k}"]`);
+    btn("cancel").onclick = () => close(null);
+    let img; try { img = await loadEditable(url); } catch { box.querySelector(".blurstage").innerHTML = `<p>This picture can't be edited. Try another one, or upload a photo.</p>`; return; }
+    const s = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+    const cv = document.createElement("canvas"); cv.width = Math.round(img.naturalWidth * s); cv.height = Math.round(img.naturalHeight * s);
+    const g = cv.getContext("2d"); g.drawImage(img, 0, 0, cv.width, cv.height);
+    box.querySelector(".blurstage").replaceChildren(cv);
+    const undo = []; let base = g.getImageData(0, 0, cv.width, cv.height), start = null;
+    const pt = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; };
+    const oval = (a, b) => { let w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+      if (w < 12 && h < 12) { w = h = Math.max(cv.width, cv.height) * 0.12; cx = a.x; cy = a.y; }   // a tap blurs a small circle
+      return { cx, cy, rx: Math.max(w / 2, 6), ry: Math.max(h / 2, 6) }; };
+    const blur = o => {
+      // shrink the area to about a dozen pixels across and stretch it back: a heavy blur that works in every browser
+      const x = Math.max(0, o.cx - o.rx * 1.2), y = Math.max(0, o.cy - o.ry * 1.2), w = Math.min(cv.width - x, o.rx * 2.4), h = Math.min(cv.height - y, o.ry * 2.4);
+      const sm = document.createElement("canvas"), k = Math.max(w, h) / 12; sm.width = Math.max(1, Math.round(w / k)); sm.height = Math.max(1, Math.round(h / k));
+      const sg = sm.getContext("2d"); sg.imageSmoothingEnabled = true; sg.imageSmoothingQuality = "high"; sg.drawImage(cv, x, y, w, h, 0, 0, sm.width, sm.height);
+      g.save(); g.beginPath(); g.ellipse(o.cx, o.cy, o.rx, o.ry, 0, 0, Math.PI * 2); g.clip();
+      g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high"; g.drawImage(sm, 0, 0, sm.width, sm.height, x, y, w, h); g.restore();
+    };
+    cv.onpointerdown = e => { start = pt(e); cv.setPointerCapture(e.pointerId); };
+    cv.onpointermove = e => { if (!start) return; const o = oval(start, pt(e)); g.putImageData(base, 0, 0);
+      g.save(); g.setLineDash([10, 8]); g.lineWidth = Math.max(3, cv.width / 300); g.strokeStyle = "#fff"; g.beginPath(); g.ellipse(o.cx, o.cy, o.rx, o.ry, 0, 0, Math.PI * 2); g.stroke(); g.restore(); };
+    cv.onpointerup = e => { if (!start) return; const o = oval(start, pt(e)); start = null; g.putImageData(base, 0, 0);
+      undo.push(base); blur(o); base = g.getImageData(0, 0, cv.width, cv.height); btn("undo").disabled = false; btn("save").disabled = false; };
+    cv.onpointercancel = () => { start = null; g.putImageData(base, 0, 0); };
+    btn("undo").onclick = () => { if (!undo.length) return; base = undo.pop(); g.putImageData(base, 0, 0); btn("undo").disabled = !undo.length; btn("save").disabled = !undo.length; };
+    btn("save").onclick = () => close(cv.toDataURL("image/jpeg", 0.85));
+  });
 }
 // image finder. All sources are free and need no key; they run at once and a slow one is dropped after 7s.
 // Always: Wikipedia article pictures, Openverse (Flickr and other open photo sites), Wikimedia Commons.
