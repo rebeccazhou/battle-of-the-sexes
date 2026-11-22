@@ -306,8 +306,9 @@ async function renderBuild(reload = true) {
 function renderCat(cat) {
   const items = B.items.filter(i => i.category_id === cat.id);
   app.innerHTML = `<div class="wrap stack ${B.scope}">
-    <div class="row"><a href="#build" class="grow" id="back">&larr; All categories</a>${B.tab === "wild" ? "" : `<button class="danger" id="delcat">Delete category</button>`}</div>
-    <div><h1>${esc(cat.emoji || "")} ${esc(cat.name)}</h1><div class="count ${items.length >= (B.tab === "wild" ? 10 : 15) ? "ok" : ""}">${B.tab === "wild" ? `${items.length} from your team (aim for 10). The other team adds the other half.` : `${items.length} pictures${items.length < 15 ? " (aim for 15+)" : ""}`}</div></div>
+    <div class="row"><a href="#build" class="grow" id="back">&larr; All categories</a>${B.tab === "wild" ? "" : `<button id="editcat">Edit name</button><button class="danger" id="delcat">Delete category</button>`}</div>
+    <div><h1 id="cattitle">${esc(cat.emoji || "")} ${esc(cat.name)}</h1>
+      <form class="row" id="renameform" hidden><input type="text" id="rnem" maxlength="4" value="${esc(cat.emoji || "")}" aria-label="Emoji" style="width:72px;text-align:center" autocomplete="off"><div class="grow"><input type="text" id="rnname" maxlength="60" value="${esc(cat.name)}" aria-label="Category name" required autocomplete="off"></div><button class="primary">Save</button><button type="button" id="rncancel">Cancel</button></form><div class="count ${items.length >= (B.tab === "wild" ? 10 : 15) ? "ok" : ""}">${B.tab === "wild" ? `${items.length} from your team (aim for 10). The other team adds the other half.` : `${items.length} pictures${items.length < 15 ? " (aim for 15+)" : ""}`}</div></div>
     <form class="card stack" id="add"><h3>Add a picture</h3>
       <div><label for="ans" class="muted">Answer (what the player has to say)</label><input type="text" id="ans" maxlength="80" placeholder="e.g. Patrick Mahomes" required autocomplete="off"></div>
       <div class="row"><div class="grow"><input type="text" id="q" placeholder="Search words (optional, defaults to the answer)" aria-label="Search words" autocomplete="off"></div><button type="button" class="primary" id="find">Find pictures</button></div>
@@ -317,6 +318,15 @@ function renderCat(cat) {
     <div class="items">${items.map(i => `<div class="item"><img src="${esc(i.image_url)}" alt="" loading="lazy"><div class="cap"><span>${esc(i.answer)}</span><button class="x" data-del="${i.id}" aria-label="Remove ${esc(i.answer)}">✕</button></div></div>`).join("")}</div></div>`;
   const $ = id => document.getElementById(id);
   $("back").onclick = e => { e.preventDefault(); B.open = null; renderBuild(); };
+  // rename: swap the title for an emoji + name form
+  const editing = on => { $("cattitle").hidden = on; $("renameform").hidden = !on; if (on) $("rnname").focus(); };
+  if ($("editcat")) $("editcat").onclick = () => editing($("renameform").hidden);
+  $("rncancel").onclick = () => editing(false);
+  $("renameform").onsubmit = async e => {
+    e.preventDefault(); const name = $("rnname").value.trim(), emoji = $("rnem").value.trim(); if (!name) return;
+    try { await api(`floor_categories?id=eq.${cat.id}`, { method: "PATCH", body: { name, emoji } }); cat.name = name; cat.emoji = emoji; toast(`Renamed to ${name}`); renderCat(cat); }
+    catch { toast("Couldn't save the new name. Try again."); }
+  };
   if ($("delcat")) $("delcat").onclick = async () => { if (!confirm(`Delete "${cat.name}" and its ${items.length} pictures?`)) return; await api(`floor_categories?id=eq.${cat.id}`, { method: "DELETE" }); B.open = null; renderBuild(); };
   app.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { await api(`floor_items?id=eq.${b.dataset.del}`, { method: "DELETE" }); renderBuild(); });
   const setPick = url => { B.pick = url; $("save").disabled = !url; $("save").textContent = url ? "Add to category" : "Pick a picture first"; };
