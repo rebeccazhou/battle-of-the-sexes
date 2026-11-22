@@ -71,9 +71,10 @@ ol.rules{margin:0;padding-left:20px} ol.rules li{margin:6px 0}
 .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
 .item{background:var(--surface);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
 .item img{width:100%;aspect-ratio:1;object-fit:cover;background:#fff}
-.item .cap{padding:8px 10px;font-size:var(--s);display:flex;justify-content:space-between;gap:6px;align-items:start}
-.item .cap span{min-width:0;overflow-wrap:anywhere}
-.item .x{padding:0 6px;border:0}
+.item .cap{padding:8px 10px;font-size:var(--s);display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;align-items:start}
+.item .cap > span:first-child{min-width:0;overflow-wrap:break-word}
+.item .x{padding:0 6px;border:0;white-space:nowrap;flex-shrink:0}
+.item .cap > .row{flex-shrink:0}
 .blurbox{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
 .blurpanel{background:var(--bg);border-radius:12px;padding:16px;width:min(960px,100%);max-height:100%;display:flex;flex-direction:column;gap:12px}
 .blurpanel p{margin:0}
@@ -321,8 +322,8 @@ function renderCat(cat) {
       <div class="row"><div class="grow"><input type="text" id="q" placeholder="Search words (optional, defaults to the answer)" aria-label="Search words" autocomplete="off"></div><button type="button" class="primary" id="find">Find pictures</button></div>
       <div id="cands"></div>
       <div class="row"><label class="muted" style="cursor:pointer"><u>Upload your own photo</u><input type="file" id="file" accept="image/*" hidden></label><span class="muted">or</span><div class="grow"><input type="text" id="url" placeholder="Paste an image link" aria-label="Image link" autocomplete="off"></div></div>
-      <div class="row"><button type="button" id="blurpick" hidden>Blur logos</button><button class="primary grow" id="save" disabled>Pick a picture first</button></div></form>
-    <div class="items">${items.map(i => `<div class="item"><img src="${esc(i.image_url)}" alt="" loading="lazy"><div class="cap"><span>${esc(i.answer)}</span><span class="row" style="gap:2px;flex-wrap:nowrap"><button class="x" data-blur="${i.id}" title="Blur a logo or name" aria-label="Blur part of ${esc(i.answer)}">Blur</button><button class="x" data-del="${i.id}" aria-label="Remove ${esc(i.answer)}">✕</button></span></div></div>`).join("")}</div></div>`;
+      <div class="row"><button type="button" id="blurpick" hidden>Blur or block out</button><button class="primary grow" id="save" disabled>Pick a picture first</button></div></form>
+    <div class="items">${items.map(i => `<div class="item"><img src="${esc(i.image_url)}" alt="" loading="lazy" data-edit="${i.id}" title="Tap to blur or block out part of it" style="cursor:pointer"><div class="cap"><span>${esc(i.answer)}</span><span class="row" style="gap:2px;flex-wrap:nowrap"><button class="x" data-blur="${i.id}" title="Blur or block out part of it" aria-label="Edit ${esc(i.answer)}">Edit</button><button class="x" data-del="${i.id}" aria-label="Remove ${esc(i.answer)}">✕</button></span></div></div>`).join("")}</div></div>`;
   const $ = id => document.getElementById(id);
   $("back").onclick = e => { e.preventDefault(); B.open = null; renderBuild(); };
   // rename: swap the title for an emoji + name form
@@ -344,8 +345,8 @@ function renderCat(cat) {
     $("url").value = ""; setPick(out); drawCands();
   };
   // blur logos on a picture already in the category
-  app.querySelectorAll("[data-blur]").forEach(b => b.onclick = async () => {
-    const it = items.find(i => i.id === b.dataset.blur); if (!it) return;
+  app.querySelectorAll("[data-blur],[data-edit]").forEach(b => b.onclick = async () => {
+    const it = items.find(i => i.id === (b.dataset.blur || b.dataset.edit)); if (!it) return;
     const out = await openBlur(it.image_url); if (!out) return;
     try { await api(`floor_items?id=eq.${it.id}`, { method: "PATCH", body: { image_url: out } }); toast("Saved"); renderBuild(); }
     catch { toast("Couldn't save. Try again."); }
@@ -357,7 +358,7 @@ function renderCat(cat) {
     if (!B.cands) { box.innerHTML = ""; return; }
     if (!B.cands.length) { box.innerHTML = `<p class="muted">No pictures found. Try different search words, upload a photo, or paste a link.</p>`; return; }
     const more = B.more === "loading" ? `<button type="button" disabled>Finding more…</button>` : B.more === false ? `<span class="muted">No more pictures found. Try different search words.</span>` : B.q ? `<button type="button" id="more">Show more pictures</button>` : "";
-    box.innerHTML = `<p class="muted" style="margin:0 0 8px">Tap the best one. Avoid pictures with the name written on them.</p><div class="cands">${B.cands.map((u, i) => `<button type="button" data-c="${i}" class="${B.pick === u ? "sel" : ""}"><img src="${esc(u)}" alt="Option ${i + 1}" loading="lazy"></button>`).join("")}</div>${more ? `<div style="margin-top:12px;text-align:center">${more}</div>` : ""}`;
+    box.innerHTML = `<p class="muted" style="margin:0 0 8px">Tap the best one. Tap it again to blur or block out a logo or name.</p><div class="cands">${B.cands.map((u, i) => `<button type="button" data-c="${i}" class="${B.pick === u ? "sel" : ""}"><img src="${esc(u)}" alt="Option ${i + 1}" loading="lazy"></button>`).join("")}</div>${more ? `<div style="margin-top:12px;text-align:center">${more}</div>` : ""}`;
     if ($("more")) $("more").onclick = async () => {
       B.more = "loading"; drawCands(); B.page = (B.page || 1) + 1; const q0 = B.q;
       const found = await findImages(q0, cat.name, B.page);
@@ -367,7 +368,7 @@ function renderCat(cat) {
     };
     box.querySelectorAll("[data-c]").forEach(b => {
       const im = b.querySelector("img"), u = im.getAttribute("src");
-      b.onclick = () => { setPick(u); $("url").value = ""; drawCands(); };
+      b.onclick = () => { if (B.pick === u) return $("blurpick").click(); setPick(u); $("url").value = ""; drawCands(); };
       // some sites refuse to show their pictures elsewhere: drop those instead of leaving a blank square
       im.onerror = () => { if (Array.isArray(B.cands)) B.cands = B.cands.filter(x => x !== u); if (B.pick === u) setPick(null); b.remove(); };
     });
@@ -426,7 +427,7 @@ async function loadEditable(url) {
 function openBlur(url) {
   return new Promise(async resolve => {
     const box = document.createElement("div"); box.className = "blurbox";
-    box.innerHTML = `<div class="blurpanel" role="dialog" aria-label="Blur logos"><p>Drag a circle over each logo or name to blur it. Drag again to blur more.</p>
+    box.innerHTML = `<div class="blurpanel" role="dialog" aria-label="Blur logos"><div class="row"><p class="grow">Drag over each logo or name. Drag again to cover more.</p><span class="row" style="gap:6px"><button type="button" class="primary" data-mode="blur">Blur</button><button type="button" data-mode="block">Block out</button></span></div>
       <div class="blurstage"><p class="muted">Loading the picture…</p></div>
       <div class="row"><button type="button" data-b="undo" disabled>Undo</button><span class="grow"></span><button type="button" data-b="cancel">Cancel</button><button type="button" class="primary" data-b="save" disabled>Save</button></div></div>`;
     document.body.append(box);
@@ -438,7 +439,10 @@ function openBlur(url) {
     const cv = document.createElement("canvas"); cv.width = Math.round(img.naturalWidth * s); cv.height = Math.round(img.naturalHeight * s);
     const g = cv.getContext("2d"); g.drawImage(img, 0, 0, cv.width, cv.height);
     box.querySelector(".blurstage").replaceChildren(cv);
-    const undo = []; let base = g.getImageData(0, 0, cv.width, cv.height), start = null;
+    const undo = []; let base = g.getImageData(0, 0, cv.width, cv.height), start = null, mode = "blur";
+    box.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { mode = b.dataset.mode; box.querySelectorAll("[data-mode]").forEach(x => x.classList.toggle("primary", x === b)); });
+    // Block out: a solid dark box over the area (drawn as a rectangle, which suits text and labels)
+    const shape = o => { g.beginPath(); if (mode === "block") g.rect(o.cx - o.rx, o.cy - o.ry, o.rx * 2, o.ry * 2); else g.ellipse(o.cx, o.cy, o.rx, o.ry, 0, 0, Math.PI * 2); };
     const pt = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; };
     const oval = (a, b) => { let w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
       if (w < 12 && h < 12) { w = h = Math.max(cv.width, cv.height) * 0.12; cx = a.x; cy = a.y; }   // a tap blurs a small circle
@@ -453,9 +457,9 @@ function openBlur(url) {
     };
     cv.onpointerdown = e => { start = pt(e); cv.setPointerCapture(e.pointerId); };
     cv.onpointermove = e => { if (!start) return; const o = oval(start, pt(e)); g.putImageData(base, 0, 0);
-      g.save(); g.setLineDash([10, 8]); g.lineWidth = Math.max(3, cv.width / 300); g.strokeStyle = "#fff"; g.beginPath(); g.ellipse(o.cx, o.cy, o.rx, o.ry, 0, 0, Math.PI * 2); g.stroke(); g.restore(); };
+      g.save(); g.setLineDash([10, 8]); g.lineWidth = Math.max(3, cv.width / 300); g.strokeStyle = "#fff"; shape(o); g.stroke(); g.restore(); };
     cv.onpointerup = e => { if (!start) return; const o = oval(start, pt(e)); start = null; g.putImageData(base, 0, 0);
-      undo.push(base); blur(o); base = g.getImageData(0, 0, cv.width, cv.height); btn("undo").disabled = false; btn("save").disabled = false; };
+      undo.push(base); if (mode === "block") { g.fillStyle = "#1c1a17"; shape(o); g.fill(); } else blur(o); base = g.getImageData(0, 0, cv.width, cv.height); btn("undo").disabled = false; btn("save").disabled = false; };
     cv.onpointercancel = () => { start = null; g.putImageData(base, 0, 0); };
     btn("undo").onclick = () => { if (!undo.length) return; base = undo.pop(); g.putImageData(base, 0, 0); btn("undo").disabled = !undo.length; btn("save").disabled = !undo.length; };
     btn("save").onclick = () => close(cv.toDataURL("image/jpeg", 0.85));
