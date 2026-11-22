@@ -11,7 +11,7 @@
 /* ==========================================================================
    THE FLOOR — PRIMETIME TV GAME SHOW DESIGN SYSTEM
    Deep arena navy stage, illuminated LED floor tiles, studio spotlight beams,
-   Team Purple (electric violet) vs Team Green (electric volt), trophy gold.
+   Team Mrs. (electric violet) vs Team Mr. (electric volt), trophy gold.
    ========================================================================== */
 :root{
   --bg:#060914;
@@ -1064,7 +1064,7 @@ input::placeholder{color:var(--fg-dim);opacity:.65}
 const SB = "https://ippikfbtknoddvumwgil.supabase.co";
 const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwcGlrZmJ0a25vZGR2dW13Z2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNjA4NjcsImV4cCI6MjA5MjkzNjg2N30.iFxRH9IwHSYeJbpeOS-3UKp2H89CGd-rhC1WX-UzAH0";
 const app = document.getElementById("app");
-const TEAM = { girls: "Team 🟣", boys: "Team 🟢", wild: "Wildcards" };
+const TEAM = { girls: "Team Mrs.", boys: "Team Mr.", wild: "Wildcards" };
 const SYM = { girls: "🟣", boys: "🟢", wild: "★" };
 const other = t => (t === "girls" ? "boys" : "girls");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -1110,9 +1110,9 @@ function renderHome() {
         <div class="show-kicker">Inspired by The Floor</div>
         <h1 class="hero-title">Battle of the Sexes</h1>
         <div class="vs-bar">
-          <span class="vs-team g"><span class="vs-orb g"></span>Team Purple</span>
+          <span class="vs-team g"><span class="vs-orb g"></span>Team Mrs.</span>
           <span class="vs-badge">VS</span>
-          <span class="vs-team b">Team Green<span class="vs-orb b"></span></span>
+          <span class="vs-team b">Team Mr.<span class="vs-orb b"></span></span>
         </div>
         <div class="hero-beam" aria-hidden="true"></div>
         <p class="hero-sub">A rapid-fire picture-naming showdown on the big screen. Beat the 60-second clock—and build secret categories to stump the other team.</p>
@@ -1341,11 +1341,11 @@ async function loadHomeCats() {
       </div>
       <div class="catgrid-teams">
         <div class="team-wing girls">
-          <div class="floor-subhead"><h3>🟣 Team Purple</h3><span>${girls.length} of 6 ready</span></div>
+          <div class="floor-subhead"><h3>🟣 Team Mrs.</h3><span>${girls.length} of 6 ready</span></div>
           <div class="catgrid">${teamSlots(girls, "girls")}</div>
         </div>
         <div class="team-wing boys">
-          <div class="floor-subhead"><h3>🟢 Team Green</h3><span>${boys.length} of 6 ready</span></div>
+          <div class="floor-subhead"><h3>🟢 Team Mr.</h3><span>${boys.length} of 6 ready</span></div>
           <div class="catgrid">${teamSlots(boys, "boys")}</div>
         </div>
       </div>
@@ -1774,9 +1774,9 @@ function renderBoard() {
   }
   app.innerHTML = `<div class="stage">
     <div class="score">
-      <div class="side girls"><span class="dot" aria-label="Team purple">${SYM.girls}</span><span class="num">${gs}</span></div>
+      <div class="side girls"><span class="dot" aria-label="Team Mrs.">${SYM.girls}</span><span class="num">${gs}</span></div>
       <div class="mid"><div class="up">${upTxt}</div><div class="sub">${sub}</div></div>
-      <div class="side boys"><span class="num">${bs}</span><span class="dot" aria-label="Team green">${SYM.boys}</span></div>
+      <div class="side boys"><span class="num">${bs}</span><span class="dot" aria-label="Team Mr.">${SYM.boys}</span></div>
     </div>
     ${bar ? `<div class="pickbar ${up}">${bar}</div>` : ""}
     <div class="board" style="${boardGrid(sys.length + team.length)}">${sys.map(tile).join("")}${team.map(tile).join("")}</div>
@@ -2021,9 +2021,9 @@ function startDuel(cat) {
   T = { kind: "duel", cat, items, i: -1, time: { girls: G.cfg.duel, boys: G.cfg.duel }, active: Math.random() < .5 ? "girls" : "boys", phase: "ready", hold: 0, lastSec: null };
   app.innerHTML = `<div class="play wild">
     <div class="duelclocks">
-      <div class="dside girls" id="dgirls"><span class="lbl dot" aria-label="Girls">${SYM.girls}</span><span class="clock" id="cgirls">${fmt(T.time.girls)}</span></div>
+      <div class="dside girls" id="dgirls"><span class="lbl dot" aria-label="Team Mrs.">${SYM.girls}</span><span class="clock" id="cgirls">${fmt(T.time.girls)}</span></div>
       <div class="duel-mid"><div class="who">⚡ Tiebreak Duel</div><h2>${esc(cat.emoji || "")} ${esc(cat.name)}</h2></div>
-      <div class="dside boys" id="dboys"><span class="clock" id="cboys">${fmt(T.time.boys)}</span><span class="lbl dot" aria-label="Boys">${SYM.boys}</span></div>
+      <div class="dside boys" id="dboys"><span class="clock" id="cboys">${fmt(T.time.boys)}</span><span class="lbl dot" aria-label="Team Mr.">${SYM.boys}</span></div>
     </div>
     <div class="pimg" id="pimg"></div>
     <div class="pbot"><div class="muted">Correct passes the turn &middot; Pass costs ${G.cfg.pass}s and you stay up</div><div class="keys"><button class="p" data-k="p">Pass (P)</button><button class="c" data-k=" ">✓ Correct (Space)</button></div></div>
