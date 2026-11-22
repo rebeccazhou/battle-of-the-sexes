@@ -1184,8 +1184,8 @@ function renderHome() {
             <span class="round-tag">Round 1</span>
             <span class="round-count">12 Built-In Topics</span>
           </div>
-          <h3>Everyday Categories</h3>
-          <p>A random game-loaded category drops on the board. Your team chooses who has the best shot at it.</p>
+          <h3>Fair Game</h3>
+          <p>Neutral categories the game picked, so neither team has home-field advantage. One drops at random. Your team chooses who has the best shot at it.</p>
           <div class="flow-pills">
             <span class="flow-pill">Random Tile Reveals</span>
             <span class="flow-arrow">&rarr;</span>
@@ -1330,10 +1330,10 @@ async function loadHomeCats() {
   box.innerHTML = `
     <div>
       <div class="floor-subhead">
-        <h3><span style="color:var(--cyan)">●</span> Round 1 · Everyday Categories</h3>
-        <span>${wilds.length} built-in categories</span>
+        <h3><span style="color:var(--cyan)">●</span> Round 1 · Fair Game</h3>
+        <span>${wilds.length} game-picked categories · nobody built these</span>
       </div>
-      <div class="catgrid">${sys || `<p class="muted">No everyday categories loaded yet.</p>`}</div>
+      <div class="catgrid">${sys || `<p class="muted">No Fair Game categories loaded yet.</p>`}</div>
     </div>
     <div>
       <div class="floor-subhead">
@@ -1713,7 +1713,7 @@ const count = t => Object.values(G.own).filter(o => o.owner === t).reduce((n, o)
 function revealCat() {
   if (T || G.pend || roundNow() !== 1) return;
   const opts = tilesOf("wild").filter(c => !G.own[c.id] && c.items.length);
-  if (!opts.length) return toast("No everyday categories with pictures left.");
+  if (!opts.length) return toast("No Fair Game categories with pictures left.");
   G.pend = { id: opts[Math.floor(Math.random() * opts.length)].id, at: Date.now() }; saveG();
   beep(523, .1); setTimeout(() => beep(784, .18), 90);
   renderBoard();
@@ -1763,7 +1763,7 @@ function renderBoard() {
   let upTxt = "", sub = "", bar = "";
   if (phase === "empty") upTxt = "No categories yet";
   else if (phase === "over") upTxt = gs === bs ? "Tied! Play the Tiebreak Duel" : `${TEAM[gs > bs ? "girls" : "boys"]} Wins · ${Math.max(gs, bs)} to ${Math.min(gs, bs)}!`;
-  else if (phase === "reveal") { upTxt = `Round 1 · ${TEAM[up]} is Up`; sub = "Reveal a random everyday category, then pick who plays it";
+  else if (phase === "reveal") { upTxt = `Round 1 · ${TEAM[up]} is Up`; sub = "Reveal a random Fair Game category, then pick who plays it";
     bar = `<button class="primary" id="breveal">Reveal Random Category</button>`; }
   else if (phase === "cat") { upTxt = `Round 2 · ${TEAM[up]} is Up`; sub = `${TEAM[other(up)]}, pick which of your trap categories ${TEAM[up]} faces`; }
   else {
