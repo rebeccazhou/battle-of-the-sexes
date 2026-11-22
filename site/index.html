@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Battle of the Sexes · The Floor Edition</title>
+<title>Battle of the Sexes · Thanksgiving 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,800&family=Chakra+Petch:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 /* ==========================================================================
-   THE FLOOR — PRIMETIME TV GAME SHOW DESIGN SYSTEM
+   PRIMETIME TV GAME SHOW DESIGN SYSTEM
    Deep arena navy stage, illuminated LED floor tiles, studio spotlight beams,
    Team Mrs. (electric violet) vs Team Mr. (electric volt), trophy gold.
    ========================================================================== */
@@ -654,7 +654,7 @@ input::placeholder{color:var(--fg-dim);opacity:.65}
 #newcat details summary{padding:4px 0;cursor:pointer;font-size:14px;font-weight:700;color:var(--cyan)}
 
 /* ==========================================================================
-   HOST PROJECTOR: THE FLOOR BOARD
+   HOST PROJECTOR: THE BOARD
    ========================================================================== */
 .stage{
   height:100vh;height:100dvh;display:flex;flex-direction:column;
@@ -720,7 +720,7 @@ input::placeholder{color:var(--fg-dim);opacity:.65}
 }
 .pickbar a{font-size:var(--ps);margin-left:.8vw;color:var(--fg-dim);font-weight:700}
 
-/* THE FLOOR GRID */
+/* THE BOARD GRID */
 .board{
   flex:1;display:grid;grid-template-columns:repeat(6,1fr);gap:.65vw;min-height:0;
   padding:.7vw;border-radius:18px;
@@ -1108,7 +1108,7 @@ function renderHome() {
       </div>
       <div class="hero-inner">
         <div class="edition-pill"><span class="dot-live"></span> Thanksgiving 2026 Edition</div>
-        <div class="show-kicker">Inspired by The Floor</div>
+        <div class="show-kicker">A Couples Game Show</div>
         <h1 class="hero-title">Battle of the Sexes</h1>
         <div class="vs-bar">
           <span class="vs-team g"><span class="vs-orb g"></span>Team Mrs.</span>
@@ -1146,7 +1146,7 @@ function renderHome() {
             </span>
           </div>
           <h3>Pick Your Player</h3>
-          <p>A category lights up on the Floor. Your team huddles and sends one player up to the projector.</p>
+          <p>A category lights up on the board. Your team huddles and sends one player up to the projector.</p>
         </article>
         <article class="step-card" style="--accent:var(--ok)">
           <div class="step-top">
@@ -1175,7 +1175,7 @@ function renderHome() {
       <div class="sec-head">
         <div>
           <div class="sec-kicker">The Format</div>
-          <h2 id="format-heading">Two rounds to win The Floor</h2>
+          <h2 id="format-heading">Two rounds to crown a winner</h2>
         </div>
       </div>
       <div class="rounds-grid">
@@ -1222,14 +1222,14 @@ function renderHome() {
       <div class="sec-head">
         <div>
           <div class="sec-kicker">Live Category Board</div>
-          <h2 id="board-heading">On The Floor Tonight</h2>
+          <h2 id="board-heading">On the Board Tonight</h2>
         </div>
         <div class="floor-pills" id="floorpills">
           <span class="f-pill r1">Loading board…</span>
         </div>
       </div>
       <div class="floor-frame" id="homecats">
-        <p class="muted" style="margin:0;text-align:center">Illuminating The Floor…</p>
+        <p class="muted" style="margin:0;text-align:center">Setting up the board…</p>
       </div>
     </section>
 
@@ -1330,7 +1330,7 @@ async function loadHomeCats() {
   box.innerHTML = `
     <div>
       <div class="floor-subhead">
-        <h3><span style="color:var(--cyan)">●</span> Round 1 · Everyday Floor</h3>
+        <h3><span style="color:var(--cyan)">●</span> Round 1 · Everyday Categories</h3>
         <span>${wilds.length} built-in categories</span>
       </div>
       <div class="catgrid">${sys || `<p class="muted">No everyday categories loaded yet.</p>`}</div>
@@ -1360,7 +1360,7 @@ const PREP = (first) => `<div class="prep"><h3>Quick Prep Guide</h3>
   <p>Each team builds <b>6 trap categories</b> before Thanksgiving—anyone on your team can chip in from their phone.</p>
   <ul>
   <li>${first}</li>
-  <li>Pick a category name (or tap an idea from <i>The Floor</i>).</li>
+  <li>Pick a category name (or tap one of the ideas).</li>
   <li>Add <b>15+ pictures</b> per category. Search, upload, or paste a link—and use <b>Blur / Block out</b> to hide any text, labels, or jersey names.</li></ul></div>`;
 const B = { me: store.get("floor_me", null), tab: "team", cats: [], items: [], open: null, cands: null, pick: null, busy: false, get team() { return this.me?.team; }, get name() { return this.me?.name; }, get scope() { return this.tab === "wild" ? "wild" : this.team; } };
 async function loadBuild() {
@@ -1429,11 +1429,11 @@ async function renderBuild(reload = true) {
       ${wild ? "" : `<div class="prog-wrap"><div class="prog-track"><div class="prog-fill ${B.cats.length >= 6 ? "done" : ""}" style="width:${pct}%"></div></div><div class="count ${B.cats.length >= 6 ? "ok" : ""}">${B.cats.length} / 6 Ready</div></div>`}
     </div>
     ${wild ? "" : `<details class="prepbox"><summary>How category prep works</summary>${PREP("You're signed in, so you only see your own team's categories. The other team's pictures stay a surprise.")}</details>`}
-    <div class="stack" style="gap:10px">${B.cats.map(c => { const n = B.items.filter(i => i.category_id === c.id).length, want = wild ? 10 : 15; return `<button class="catrow" data-open="${c.id}"><span class="em">${esc(c.emoji || SYM[B.team])}</span><span class="grow" style="flex:1;min-width:0"><b>${esc(c.name)}</b><span class="muted">${n >= want ? "Ready for the Floor" : `Need ${want - n} more to hit ${want}`}</span></span><span class="count ${n >= want ? "ok" : ""}">${n}${wild ? " from your team" : " pics"}</span></button>`; }).join("") || `<div class="card"><p class="muted" style="margin:0;text-align:center">${wild ? "No wildcard categories yet." : "No categories yet. Create your team's first trap below!"}</p></div>`}</div>
+    <div class="stack" style="gap:10px">${B.cats.map(c => { const n = B.items.filter(i => i.category_id === c.id).length, want = wild ? 10 : 15; return `<button class="catrow" data-open="${c.id}"><span class="em">${esc(c.emoji || SYM[B.team])}</span><span class="grow" style="flex:1;min-width:0"><b>${esc(c.name)}</b><span class="muted">${n >= want ? "Ready to play" : `Need ${want - n} more to hit ${want}`}</span></span><span class="count ${n >= want ? "ok" : ""}">${n}${wild ? " from your team" : " pics"}</span></button>`; }).join("") || `<div class="card"><p class="muted" style="margin:0;text-align:center">${wild ? "No wildcard categories yet." : "No categories yet. Create your team's first trap below!"}</p></div>`}</div>
     ${wild ? "" : `<form class="card stack" id="newcat">
       <h3>+ Create New Category</h3>
       <div class="row"><input type="text" id="cemoji" maxlength="4" placeholder="🏈" style="width:74px;text-align:center;font-size:20px" aria-label="Emoji"><div class="grow"><input type="text" id="cname" maxlength="60" placeholder="Category name (e.g. 90s Boy Bands)" aria-label="Category name" required></div></div>
-      ${ideas.length ? `<details><summary>Need ideas? Browse categories from The Floor</summary><div class="chips" style="margin-top:10px">${ideas.map(([e, n]) => `<button type="button" data-idea="${esc(e)}|${esc(n)}">${esc(n)}</button>`).join("")}</div></details>` : ""}
+      ${ideas.length ? `<details><summary>Need ideas? Browse category ideas</summary><div class="chips" style="margin-top:10px">${ideas.map(([e, n]) => `<button type="button" data-idea="${esc(e)}|${esc(n)}">${esc(n)}</button>`).join("")}</div></details>` : ""}
       <button class="primary">Add Category</button>
     </form>`}
   </div>`;
@@ -1683,7 +1683,7 @@ function playersLeft(t, r = roundNow()) {
 const pendCat = () => G.pend && G.cats.find(c => c.id === G.pend.id && !G.own[c.id]) || null;
 const huddleLeft = () => G.pend && G.cfg.huddle ? Math.max(0, G.cfg.huddle - (Date.now() - G.pend.at) / 1000) : null;
 async function hostInit() {
-  app.innerHTML = `<div class="wrap"><div class="card"><p style="margin:0;text-align:center">Powering up The Floor…</p></div></div>`;
+  app.innerHTML = `<div class="wrap"><div class="card"><p style="margin:0;text-align:center">Setting up the board…</p></div></div>`;
   let cats, items;
   try { cats = await api("floor_categories?order=created_at"); items = await api("floor_items?order=created_at"); }
   catch (e) { app.innerHTML = `<div class="wrap"><div class="card"><p style="margin:0">Couldn't load the game. Check the internet connection and refresh.</p></div></div>`; return; }
@@ -1909,7 +1909,7 @@ function drawJudge() {
     else { label = "Waiting for the projector"; main = ""; }
   }
   else if (s.phase === "ready") { label = "Ready when the player is"; main = esc(s.cat || ""); keys = `<button class="primary one" data-j="start">Start Clock</button>`; }
-  else if (s.phase === "done") { label = "Turn Over"; main = esc(s.headline || ""); keys = `<button class="primary one" data-j="continue">Back to The Floor</button>`; }
+  else if (s.phase === "done") { label = "Turn Over"; main = esc(s.headline || ""); keys = `<button class="primary one" data-j="continue">Back to the Board</button>`; }
   else { label = s.phase === "flash" ? "✓ Correct" : s.phase === "pass" ? "Passed (-3s)" : "Answer"; main = esc(s.answer || "");
     const off = s.phase === "play" ? "" : " disabled"; keys = `<button data-j="pass"${off}>Pass (P)</button><button class="primary" data-j="correct"${off}>✓ Correct (Space)</button>`; }
   const sig = label + "|" + main + many;
@@ -1975,7 +1975,7 @@ function show() {
       : `<div class="msg"><div class="big-em">⚡</div><h2>Tiebreak Duel</h2><p>One player from each team. Your clock runs only on your turn—nail it to pass the pressure.<br><b>${TEAM[T.active]} goes first.</b></p><div class="tap-pill">Tap or Press Space to Start</div></div>`;
     setAnswer("Press Space to start");
   } else if (T.phase === "done") {
-    box.innerHTML = `<div class="msg ${T.winner}"><div class="big-em">🏆</div><h2>${T.winner && SYM[T.winner] && !T.headline.includes(SYM[T.winner]) ? SYM[T.winner] + " " : ""}${esc(T.headline)}</h2><p>${esc(T.detail)}</p><div class="tap-pill">${T.practice && location.hash === "#practice" ? "Back to Stage Home" : "Back to The Floor"}</div></div>`; setAnswer("");
+    box.innerHTML = `<div class="msg ${T.winner}"><div class="big-em">🏆</div><h2>${T.winner && SYM[T.winner] && !T.headline.includes(SYM[T.winner]) ? SYM[T.winner] + " " : ""}${esc(T.headline)}</h2><p>${esc(T.detail)}</p><div class="tap-pill">${T.practice && location.hash === "#practice" ? "Back to Stage Home" : "Back to the Board"}</div></div>`; setAnswer("");
   } else {
     box.innerHTML = `<img src="${esc(it.image_url)}" alt="">` + (T.phase === "flash" || T.phase === "pass" ? `<div class="ans">${esc(it.answer)}</div>` : ""); setAnswer(it.answer);
   }
