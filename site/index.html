@@ -1810,7 +1810,12 @@ function renderBoard() {
   app.querySelectorAll("[data-player]").forEach(el => el.onclick = () => choosePlayer(el.dataset.player));
   document.getElementById("breveal")?.addEventListener("click", revealCat);
   document.getElementById("bunpick")?.addEventListener("click", e => { e.preventDefault(); unchooseCat(); });
-  document.getElementById("bprac").onclick = () => G.demo?.items.length ? startTurn(G.demo, { practice: true }) : toast("The practice category has no pictures yet.");
+  document.getElementById("bprac").onclick = () => {
+    // Host Practice button: every "Name that Friend" picture in one 240-second reel (falls back to the usual practice deck)
+    const friends = G.cats.filter(c => /^name that friend/i.test(c.name)).flatMap(c => c.items);
+    if (friends.length) return startTurn({ id: "friends-reel", name: "Name that Friend", emoji: "🤗", team: "wild", items: friends }, { practice: true, secs: 240 });
+    G.demo?.items.length ? startTurn(G.demo, { practice: true }) : toast("The practice category has no pictures yet.");
+  };
   document.getElementById("btie").onclick = () => { const items = sys.flatMap(c => c.items); items.length ? startDuel({ id: "tiebreak", name: "Tiebreak", emoji: "⚡", items }) : toast("No pictures available for a tiebreak."); };
   document.getElementById("bfs").onclick = () => document.documentElement.requestFullscreen?.().catch(() => {});
   document.getElementById("bnew").onclick = () => { if (confirm("Clear the board and start a new game?")) { G.own = {}; G.pend = null; G.first = Math.random() < .5 ? "girls" : "boys"; saveG(); hostInit(); } };
@@ -1957,7 +1962,7 @@ const fmt = s => String(Math.max(0, Math.ceil(s)));
 function startTurn(cat, opt = {}) {
   const items = shuffle(cat.items); preload(items);
   const team = opt.practice ? (location.hash === "#practice" ? (B.team || "wild") : G.up) : cat.team === "wild" ? teamUp() : other(cat.team);
-  T = { kind: "solo", cat, team, practice: !!opt.practice, items, i: -1, correct: 0, time: opt.practice ? 30 : G.cfg.clock, phase: "ready", hold: 0, lastSec: null };
+  T = { kind: "solo", cat, team, practice: !!opt.practice, items, i: -1, correct: 0, time: opt.secs || (opt.practice ? 30 : G.cfg.clock), phase: "ready", hold: 0, lastSec: null };
   T.secs = T.time;
   T.player = opt.practice ? "" : opt.player || "";
   clearInterval(boardTimer); boardTimer = null;
